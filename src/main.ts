@@ -78,6 +78,7 @@ interface State {
   newsState: 'idle' | 'loading' | 'loaded' | 'empty' | 'refused' | 'unreachable';
   newsItems: NewsItem[];
   health: HealthData | null;
+  deviceMode: 'desktop' | 'mobile';
 }
 
 const state: State = {
@@ -102,7 +103,8 @@ const state: State = {
   priceRateLimitedTime: null,
   newsState: 'idle',
   newsItems: [],
-  health: null
+  health: null,
+  deviceMode: 'desktop'
 };
 
 // UI Expansion state (per-session, resets on lookup)
@@ -347,19 +349,21 @@ function renderViewportContent(
 
   if (status === 'loaded' && source === 'esri' && tiles && tiles.length === 9) {
     return `
-      <div class="grid grid-cols-3 w-[768px] h-[768px] shrink-0 pointer-events-none select-none" style="grid-template-columns: repeat(3, 256px); grid-template-rows: repeat(3, 256px);">
-        ${tiles
-          .map(
-            (tileUrl, idx) => `
-          <img
-            src="${tileUrl}"
-            alt="Esri World Imagery tile ${idx + 1}"
-            class="w-[256px] h-[256px] block bg-neutral-200"
-            loading="eager"
-          />
-        `
-          )
-          .join('')}
+      <div class="esri-tile-container">
+        <div class="esri-tile-grid">
+          ${tiles
+            .map(
+              (tileUrl, idx) => `
+            <img
+              src="${tileUrl}"
+              alt="Esri World Imagery tile ${idx + 1}"
+              class="esri-tile-img"
+              loading="eager"
+            />
+          `
+            )
+            .join('')}
+        </div>
       </div>
     `;
   }
@@ -369,7 +373,7 @@ function renderViewportContent(
       <img
         src="${imageUrl}"
         alt="Satellite capture"
-        class="w-full h-full object-cover"
+        class="hero-image-cover"
       />
     `;
   }
@@ -460,7 +464,7 @@ function renderCrossPanelSynthesis(): string {
     clauses.push(state.selectedCompany.facility.siteType);
   }
 
-  // Clause 2: 90-day price [+/-X%] (only if price state is loaded with prices)
+  // Clause 2: ninety-day price [+/-X%] (only if price state is loaded with prices)
   if (state.priceState === 'loaded' && state.priceData?.prices && state.priceData.prices.length > 1) {
     const prices = state.priceData.prices;
     const firstClose = prices[0].close;
@@ -469,7 +473,7 @@ function renderCrossPanelSynthesis(): string {
       const diff = lastClose - firstClose;
       const pct = (diff / firstClose) * 100;
       const sign = pct >= 0 ? '+' : '';
-      clauses.push(`90-day price ${sign}${pct.toFixed(1)}%`);
+      clauses.push(`ninety-day price ${sign}${pct.toFixed(1)}%`);
     }
   }
 
@@ -501,8 +505,7 @@ function renderCrossPanelSynthesis(): string {
 
   return `
     <div id="cross-panel-synthesis" class="cross-panel-synthesis">
-      <span style="width: 5px; height: 5px; border-radius: 50% !important; background: var(--slate); flex-shrink: 0;"></span>
-      <span>${clauses.join(' · ')}</span>
+      ${clauses.join(' · ')}
     </div>
   `;
 }
@@ -520,13 +523,18 @@ function render() {
   const region = comp ? comp.region : '—';
   const facilityLabel = comp?.facility ? comp.facility.label : 'No mapped facility in database';
 
-  // Calculate 90-day price percentage for image overlay
+  // Calculate 90-day price metrics for image overlay
   let ninetyDayDiffStr: string | null = null;
   let ninetyDayIsPos = true;
+  let lastCloseVal: number | null = null;
+  let lastCloseDateStr: string | null = null;
+
   if (state.priceData?.prices && state.priceData.prices.length > 1) {
     const prices = state.priceData.prices;
     const firstClose = prices[0].close;
     const lastClose = prices[prices.length - 1].close;
+    lastCloseVal = lastClose;
+    lastCloseDateStr = formatDate(prices[prices.length - 1].date);
     if (firstClose > 0) {
       const diff = lastClose - firstClose;
       const pct = (diff / firstClose) * 100;
@@ -564,12 +572,33 @@ function render() {
   };
 
   root.innerHTML = `
-    <div class="app-container">
+    <div class="app-container ${state.deviceMode === 'mobile' ? 'device-mode-mobile' : ''}">
 
       <!-- PANEL 0 · SEARCH (Pinned Top) -->
       <section id="panel-search" class="search-section">
-        <div class="wordmark-container">
-          <span class="product-wordmark">OVERBERG</span>
+        <div class="search-top-bar">
+          <div class="wordmark-container">
+            <span class="product-wordmark">OVERBERG</span>
+          </div>
+          <div class="device-preview-controls" role="group" aria-label="Device layout preview">
+            <button
+              type="button"
+              id="device-desktop-btn"
+              class="device-toggle-btn ${state.deviceMode === 'desktop' ? 'is-active' : ''}"
+              aria-pressed="${state.deviceMode === 'desktop' ? 'true' : 'false'}"
+            >
+              Desktop
+            </button>
+            <span class="device-toggle-sep">/</span>
+            <button
+              type="button"
+              id="device-mobile-btn"
+              class="device-toggle-btn ${state.deviceMode === 'mobile' ? 'is-active' : ''}"
+              aria-pressed="${state.deviceMode === 'mobile' ? 'true' : 'false'}"
+            >
+              Mobile
+            </button>
+          </div>
         </div>
         <form id="search-form" class="search-form">
           <div class="relative flex-1">
@@ -669,9 +698,6 @@ function render() {
         </div>
       </section>
 
-      <!-- CROSS-PANEL SYNTHESIS (Above the satellite hero) -->
-      ${renderCrossPanelSynthesis()}
-
       <!-- HERO · SATELLITE (Full Width) -->
       <section id="panel-satellite" class="instrument-section satellite-panel-body ${state.satelliteState === 'loading' ? 'is-loading' : ''}">
         <div>
@@ -753,13 +779,20 @@ function render() {
                     <div class="hero-meta-row" style="font-size: 0.75rem;">
                       <span class="hero-ticker">${symbol}</span>
                       ${region && region !== '—' ? `<span>·</span><span>${region}</span>` : ''}
-                      ${
-                        ninetyDayDiffStr
-                          ? `<span>·</span><span class="hero-price-tag ${ninetyDayIsPos ? 'hero-price-up' : 'hero-price-down'}">${ninetyDayDiffStr} 90d</span>`
-                          : ''
-                      }
                     </div>
-                    <div class="hero-facility-label">${facilityLabel}</div>
+                    ${
+                      ninetyDayDiffStr && lastCloseVal !== null
+                        ? `
+                      <div class="hero-price-change ${ninetyDayIsPos ? 'up' : 'down'}" style="font-size: 1.8rem; margin-top: 0.25rem;">
+                        ${ninetyDayDiffStr}
+                      </div>
+                      <div class="hero-last-close-line" style="font-size: 0.72rem;">
+                        Last close: <strong>$${lastCloseVal.toFixed(2)}</strong> · ${lastCloseDateStr}
+                      </div>
+                    `
+                        : ''
+                    }
+                    <div class="hero-facility-label" style="font-size: 0.72rem; margin-top: 0.2rem;">${facilityLabel}</div>
                   </div>
                 </div>
                 ${renderProfileStrip(comp?.facility, 'profile-details-primary')}
@@ -776,7 +809,7 @@ function render() {
                       <span>·</span>
                       <span>Comparison</span>
                     </div>
-                    <div class="hero-facility-label">${FACILITIES[state.compareSymbol].label}</div>
+                    <div class="hero-facility-label" style="font-size: 0.72rem; margin-top: 0.2rem;">${FACILITIES[state.compareSymbol].label}</div>
                   </div>
                 </div>
                 ${renderProfileStrip(FACILITIES[state.compareSymbol], 'profile-details-compare')}
@@ -803,13 +836,20 @@ function render() {
               <div class="hero-meta-row" style="color: var(--slate);">
                 <span class="hero-ticker" style="color: var(--ink);">${symbol}</span>
                 ${region && region !== '—' ? `<span>·</span><span>${region}</span>` : ''}
-                ${
-                  ninetyDayDiffStr
-                    ? `<span>·</span><span class="hero-price-tag ${ninetyDayIsPos ? 'hero-price-up' : 'hero-price-down'}">${ninetyDayDiffStr} 90d</span>`
-                    : ''
-                }
               </div>
-              ${facilityLabel ? `<div class="hero-facility-label" style="color: var(--slate);">${facilityLabel}</div>` : ''}
+              ${
+                ninetyDayDiffStr && lastCloseVal !== null
+                  ? `
+                <div class="hero-price-change ${ninetyDayIsPos ? 'up' : 'down'}" style="font-size: 1.8rem; margin-top: 0.25rem;">
+                  ${ninetyDayDiffStr}
+                </div>
+                <div class="hero-last-close-line" style="color: var(--slate);">
+                  Last close: <strong style="color: var(--ink);">$${lastCloseVal.toFixed(2)}</strong> · ${lastCloseDateStr}
+                </div>
+              `
+                  : ''
+              }
+              ${facilityLabel ? `<div class="hero-facility-label" style="color: var(--slate); margin-top: 0.25rem;">${facilityLabel}</div>` : ''}
             </div>
 
             ${
@@ -835,13 +875,20 @@ function render() {
                   <div class="hero-meta-row">
                     <span class="hero-ticker">${symbol}</span>
                     ${region && region !== '—' ? `<span>·</span><span>${region}</span>` : ''}
-                    ${
-                      ninetyDayDiffStr
-                        ? `<span>·</span><span class="hero-price-tag ${ninetyDayIsPos ? 'hero-price-up' : 'hero-price-down'}">${ninetyDayDiffStr} 90d</span>`
-                        : ''
-                    }
+                    ${facilityLabel ? `<span>·</span><span class="hero-facility-label">${facilityLabel}</span>` : ''}
                   </div>
-                  ${facilityLabel ? `<div class="hero-facility-label">${facilityLabel}</div>` : ''}
+                  ${
+                    ninetyDayDiffStr && lastCloseVal !== null
+                      ? `
+                    <div class="hero-price-change ${ninetyDayIsPos ? 'up' : 'down'}">
+                      ${ninetyDayDiffStr}
+                    </div>
+                    <div class="hero-last-close-line">
+                      Last close: <strong>$${lastCloseVal.toFixed(2)}</strong> · ${lastCloseDateStr}
+                    </div>
+                  `
+                      : ''
+                  }
                 </div>
               `
                   : ''
@@ -888,6 +935,9 @@ function render() {
         </div>
       </section>
 
+      <!-- CROSS-PANEL SYNTHESIS (Directly beneath hero, above lower grid) -->
+      ${renderCrossPanelSynthesis()}
+
       <!-- LOWER GRID · PRICE & NEWS (Denser and Quieter) -->
       <div class="lower-sections-grid">
 
@@ -895,7 +945,7 @@ function render() {
         <section id="panel-price" class="instrument-section price-panel-body ${state.priceState === 'loading' ? 'is-loading' : ''}">
           <div>
             <div class="panel-header-bar">
-              <h2 class="panel-heading">Share price, ninety-day close</h2>
+              <h2 class="panel-heading">Ninety-day close</h2>
             </div>
 
             ${(() => {
@@ -935,36 +985,16 @@ function render() {
               // Loaded (or rate-limited serving stale cache)
               const prices = state.priceData?.prices || [];
               if (prices.length > 0) {
-                const firstClose = prices[0].close;
-                const lastClose = prices[prices.length - 1].close;
-                const diff = lastClose - firstClose;
-                const pct = (diff / firstClose) * 100;
-                const isPos = diff >= 0;
-                const sign = isPos ? '+' : '';
-
                 return `
-                  <!-- Leading with ninety-day price change at 3.2rem -->
-                  <div class="mt-1 mb-2">
-                    <div class="price-change-headline ${isPos ? 'up' : 'down'}">
-                      ${sign}${pct.toFixed(2)}%
+                  ${
+                    state.priceData?.stale || state.priceState === 'rate-limited'
+                      ? `
+                    <div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--down); padding: 0.25rem 0;">
+                      Price data is rate-limited right now. Showing the last figures we have, from ${formatTime(state.priceData?.cachedAt || '')}.
                     </div>
-
-                    <div class="price-substats">
-                      <span>${sign}$${diff.toFixed(2)} 90d</span>
-                      <span>Last close: <strong>$${lastClose.toFixed(2)}</strong></span>
-                      <span>${formatDate(prices[prices.length - 1].date)}</span>
-                    </div>
-
-                    ${
-                      state.priceData?.stale || state.priceState === 'rate-limited'
-                        ? `
-                      <div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--down); padding: 0.25rem 0;">
-                        Price data is rate-limited right now. Showing the last figures we have, from ${formatTime(state.priceData?.cachedAt || '')}.
-                      </div>
-                    `
-                        : ''
-                    }
-                  </div>
+                  `
+                      : ''
+                  }
 
                   <!-- Inline SVG Chart -->
                   <div class="price-chart-wrap">
@@ -1082,23 +1112,19 @@ function render() {
 
       <!-- FOOTER -->
       <footer class="site-footer">
+        <p class="footer-disclaimer">
+          Overberg is a coursework prototype. Not financial advice.
+        </p>
         <div class="footer-credits">
-          <span>Overberg is a coursework prototype. Not financial advice.</span>
-          <span>·</span>
-          <span>
-            <a href="https://www.theguardian.com" target="_blank" rel="noopener noreferrer">
-              Powered by the Guardian
-            </a>
-          </span>
-          <span>·</span>
+          <a href="https://www.theguardian.com" target="_blank" rel="noopener noreferrer">
+            Powered by the Guardian
+          </a>
+          <span class="footer-sep">·</span>
           <span>Imagery courtesy of NASA Earth Science / Landsat</span>
-          <span>·</span>
+          <span class="footer-sep">·</span>
           <span>Basemap tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community</span>
-          <span>·</span>
+          <span class="footer-sep">·</span>
           <span>Market data provided by Alpha Vantage</span>
-        </div>
-        <div class="footer-disclaimer">
-          This dashboard is a preliminary research aid and does not constitute financial or investment advice.
         </div>
       </footer>
 
@@ -1110,6 +1136,22 @@ function render() {
 
 // Event Listeners
 function attachEventListeners() {
+  const desktopBtn = document.getElementById('device-desktop-btn');
+  const mobileBtn = document.getElementById('device-mobile-btn');
+  if (desktopBtn && mobileBtn) {
+    desktopBtn.onclick = () => {
+      if (state.deviceMode !== 'desktop') {
+        state.deviceMode = 'desktop';
+        render();
+      }
+    };
+    mobileBtn.onclick = () => {
+      if (state.deviceMode !== 'mobile') {
+        state.deviceMode = 'mobile';
+        render();
+      }
+    };
+  }
   const form = document.getElementById('search-form');
   const input = document.getElementById('search-input') as HTMLInputElement | null;
 
