@@ -181,39 +181,39 @@ function generatePriceChartSvg(prices: PricePoint[]): string {
 
   const midPrice = minPrice + priceRange / 2;
   const isUp = prices[prices.length - 1].close >= prices[0].close;
-  const strokeColor = isUp ? '#059669' : '#dc2626';
-  const fillColor = isUp ? 'rgba(5, 150, 105, 0.08)' : 'rgba(220, 38, 38, 0.08)';
+  const strokeColor = isUp ? '#2F6B4F' : '#A33A2A';
+  const fillColor = isUp ? 'rgba(47, 107, 79, 0.08)' : 'rgba(163, 58, 42, 0.08)';
 
   return `
     <svg class="price-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
       <defs>
         <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${strokeColor}" stop-opacity="0.18" />
-          <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0.01" />
+          <stop offset="0%" stop-color="${strokeColor}" stop-opacity="0.16" />
+          <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0.0" />
         </linearGradient>
       </defs>
 
       <!-- Horizontal grid guides -->
-      <line x1="${padLeft}" y1="${getY(maxPrice).toFixed(1)}" x2="${padLeft + chartW}" y2="${getY(maxPrice).toFixed(1)}" stroke="#e5e7eb" stroke-dasharray="2,2" stroke-width="1" />
-      <line x1="${padLeft}" y1="${getY(midPrice).toFixed(1)}" x2="${padLeft + chartW}" y2="${getY(midPrice).toFixed(1)}" stroke="#f3f4f6" stroke-dasharray="2,2" stroke-width="1" />
-      <line x1="${padLeft}" y1="${getY(minPrice).toFixed(1)}" x2="${padLeft + chartW}" y2="${getY(minPrice).toFixed(1)}" stroke="#e5e7eb" stroke-dasharray="2,2" stroke-width="1" />
+      <line x1="${padLeft}" y1="${getY(maxPrice).toFixed(1)}" x2="${padLeft + chartW}" y2="${getY(maxPrice).toFixed(1)}" stroke="#D8D9D2" stroke-dasharray="2,2" stroke-width="1" />
+      <line x1="${padLeft}" y1="${getY(midPrice).toFixed(1)}" x2="${padLeft + chartW}" y2="${getY(midPrice).toFixed(1)}" stroke="#E4E5DF" stroke-dasharray="2,2" stroke-width="1" />
+      <line x1="${padLeft}" y1="${getY(minPrice).toFixed(1)}" x2="${padLeft + chartW}" y2="${getY(minPrice).toFixed(1)}" stroke="#D8D9D2" stroke-dasharray="2,2" stroke-width="1" />
 
       <!-- Price Labels on Y-axis -->
-      <text x="${padLeft - 6}" y="${(getY(maxPrice) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#6b7280" font-family="monospace">$${maxPrice.toFixed(2)}</text>
-      <text x="${padLeft - 6}" y="${(getY(minPrice) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#6b7280" font-family="monospace">$${minPrice.toFixed(2)}</text>
+      <text x="${padLeft - 6}" y="${(getY(maxPrice) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#6E7469" font-family="monospace">$${maxPrice.toFixed(2)}</text>
+      <text x="${padLeft - 6}" y="${(getY(minPrice) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#6E7469" font-family="monospace">$${minPrice.toFixed(2)}</text>
 
       <!-- Area fill -->
       <path d="${areaPath}" fill="url(#priceGradient)" />
 
       <!-- Price polyline -->
-      <polyline points="${points}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <polyline points="${points}" fill="none" stroke="${strokeColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
 
       <!-- Endpoint circle -->
-      <circle cx="${lastX}" cy="${getY(prices[prices.length - 1].close).toFixed(1)}" r="3.5" fill="${strokeColor}" />
+      <circle cx="${lastX}" cy="${getY(prices[prices.length - 1].close).toFixed(1)}" r="3" fill="${strokeColor}" />
 
       <!-- Date bounds on X-axis -->
-      <text x="${padLeft}" y="${height - 6}" text-anchor="start" font-size="9.5" fill="#9ca3af">${formatDate(prices[0].date)}</text>
-      <text x="${padLeft + chartW}" y="${height - 6}" text-anchor="end" font-size="9.5" fill="#9ca3af">${formatDate(prices[prices.length - 1].date)}</text>
+      <text x="${padLeft}" y="${height - 6}" text-anchor="start" font-size="9.5" fill="#6E7469">${formatDate(prices[0].date)}</text>
+      <text x="${padLeft + chartW}" y="${height - 6}" text-anchor="end" font-size="9.5" fill="#6E7469">${formatDate(prices[prices.length - 1].date)}</text>
     </svg>
   `;
 }
@@ -227,8 +227,8 @@ function renderProfileStrip(fac: Facility | FacilityEntry | null | undefined): s
   if (fac.siteType) {
     cols.push(`
       <div>
-        <span class="block text-[10px] uppercase tracking-wider font-semibold text-neutral-400">Site Type</span>
-        <span class="text-xs text-neutral-700 font-normal mt-0.5 block">${fac.siteType}</span>
+        <span class="profile-field-label">Site type</span>
+        <span class="profile-field-value">${fac.siteType}</span>
       </div>
     `);
   }
@@ -236,8 +236,8 @@ function renderProfileStrip(fac: Facility | FacilityEntry | null | undefined): s
   if (typeof fac.footprintHa === 'number' && !isNaN(fac.footprintHa)) {
     cols.push(`
       <div>
-        <span class="block text-[10px] uppercase tracking-wider font-semibold text-neutral-400">Footprint</span>
-        <span class="text-xs text-neutral-700 font-normal mt-0.5 block">${fac.footprintHa} ha</span>
+        <span class="profile-field-label">Footprint</span>
+        <span class="profile-field-value">${fac.footprintHa} ha</span>
       </div>
     `);
   }
@@ -245,8 +245,8 @@ function renderProfileStrip(fac: Facility | FacilityEntry | null | undefined): s
   if (fac.scaleNote) {
     cols.push(`
       <div>
-        <span class="block text-[10px] uppercase tracking-wider font-semibold text-neutral-400">Scale context</span>
-        <span class="text-xs text-neutral-700 font-normal mt-0.5 block">${fac.scaleNote}</span>
+        <span class="profile-field-label">Scale context</span>
+        <span class="profile-field-value">${fac.scaleNote}</span>
       </div>
     `);
   }
@@ -254,8 +254,8 @@ function renderProfileStrip(fac: Facility | FacilityEntry | null | undefined): s
   if (fac.measuredOn) {
     cols.push(`
       <div>
-        <span class="block text-[10px] uppercase tracking-wider font-semibold text-neutral-400">Provenance</span>
-        <span class="text-xs text-neutral-500 font-normal mt-0.5 block">Measured by hand from basemap imagery, ${fac.measuredOn}</span>
+        <span class="profile-field-label">Provenance</span>
+        <span class="profile-field-value" style="color: var(--slate); font-size: 0.72rem;">Measured by hand from basemap imagery, ${fac.measuredOn}</span>
       </div>
     `);
   }
@@ -263,10 +263,8 @@ function renderProfileStrip(fac: Facility | FacilityEntry | null | undefined): s
   if (cols.length === 0) return '';
 
   return `
-    <div class="mt-3 py-2.5 px-3 bg-neutral-50/70 border border-[#e5e7eb] rounded-lg text-xs text-neutral-600">
-      <div class="grid grid-cols-2 min-[820px]:grid-cols-4 gap-3">
-        ${cols.join('')}
-      </div>
+    <div class="site-profile-strip">
+      ${cols.join('')}
     </div>
   `;
 }
@@ -443,9 +441,9 @@ function renderCrossPanelSynthesis(): string {
   }
 
   return `
-    <div id="cross-panel-synthesis" class="mb-6 py-2 px-3.5 bg-white border border-[#e5e7eb] rounded-lg text-xs font-mono text-neutral-700 shadow-2xs flex items-center gap-2">
-      <span class="w-1.5 h-1.5 rounded-full bg-neutral-400 shrink-0"></span>
-      <span class="truncate">${clauses.join(' · ')}</span>
+    <div id="cross-panel-synthesis" class="cross-panel-synthesis">
+      <span style="width: 5px; height: 5px; border-radius: 50% !important; background: var(--slate); flex-shrink: 0;"></span>
+      <span>${clauses.join(' · ')}</span>
     </div>
   `;
 }
@@ -461,43 +459,55 @@ function render() {
   const region = comp ? comp.region : '—';
   const facilityLabel = comp?.facility ? comp.facility.label : 'No mapped facility in database';
 
+  // Calculate 90-day price percentage for image overlay
+  let ninetyDayDiffStr: string | null = null;
+  let ninetyDayIsPos = true;
+  if (state.priceData?.prices && state.priceData.prices.length > 1) {
+    const prices = state.priceData.prices;
+    const firstClose = prices[0].close;
+    const lastClose = prices[prices.length - 1].close;
+    if (firstClose > 0) {
+      const diff = lastClose - firstClose;
+      const pct = (diff / firstClose) * 100;
+      ninetyDayIsPos = diff >= 0;
+      const sign = diff >= 0 ? '+' : '';
+      ninetyDayDiffStr = `${sign}${pct.toFixed(2)}%`;
+    }
+  }
+
   // Status dot indicators helper
   const getStatusChip = (providerKey: 'satellite' | 'news' | 'price', label: string) => {
     const p = state.health ? state.health[providerKey] : null;
-    let badgeClass = 'bg-stone-100 text-stone-700 border-stone-200';
-    let dotClass = 'bg-stone-400';
+    let dotClass = 'status-dot-slate';
     let statusText = 'checking…';
 
     if (p) {
       if (p.state === 'up') {
-        badgeClass = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-        dotClass = 'bg-emerald-500';
+        dotClass = 'status-dot-up';
         statusText = 'up';
       } else if (p.state === 'degraded') {
-        badgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
-        dotClass = 'bg-amber-500';
+        dotClass = 'status-dot-slate';
         statusText = 'degraded';
       } else {
-        badgeClass = 'bg-rose-50 text-rose-800 border-rose-200';
-        dotClass = 'bg-rose-500';
+        dotClass = 'status-dot-down';
         statusText = 'down';
       }
     }
 
     return `
-      <div class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border ${badgeClass}">
-        <span class="w-1.5 h-1.5 rounded-full ${dotClass}"></span>
+      <div class="status-chip" title="${label}: ${statusText}">
+        <span class="status-dot ${dotClass}"></span>
         <span>${label}: ${statusText}</span>
       </div>
     `;
   };
 
   root.innerHTML = `
-    <div class="max-w-[1100px] mx-auto px-4 py-6 sm:px-6">
+    <div class="app-container">
 
       <!-- PANEL 0 · SEARCH (Pinned Top) -->
-      <section id="panel-search" class="sticky top-0 z-30 bg-[#f7f8f9]/95 backdrop-blur-md pt-2 pb-4 border-b border-[#e5e7eb] mb-6">
-        <form id="search-form" class="flex flex-col sm:flex-row gap-2">
+      <section id="panel-search" class="search-section">
+        <form id="search-form" class="search-form">
           <div class="relative flex-1">
             <input
               id="search-input"
@@ -505,13 +515,13 @@ function render() {
               autocomplete="off"
               placeholder="Company name or ticker"
               value="${state.searchQuery}"
-              class="w-full h-11 px-4 text-base bg-white border border-[#d1d5db] rounded-lg shadow-2xs focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-neutral-900 placeholder:text-neutral-400"
+              class="search-input w-full"
             />
           </div>
           <button
             id="search-submit"
             type="submit"
-            class="h-11 px-6 text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 active:bg-neutral-950 rounded-lg transition-colors whitespace-nowrap cursor-pointer"
+            class="search-button"
           >
             Lookup
           </button>
@@ -520,22 +530,22 @@ function render() {
         <!-- Search Status & State Messages -->
         ${
           state.searchState === 'loading'
-            ? `<div class="mt-2.5 text-xs text-neutral-600 font-medium animate-pulse">Looking up companies…</div>`
+            ? `<div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--slate); font-weight: 500;">Looking up companies…</div>`
             : ''
         }
         ${
           state.searchState === 'empty'
-            ? `<div class="mt-2.5 text-xs text-neutral-600 font-medium">No companies match that name. Try the ticker instead.</div>`
+            ? `<div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--slate); font-weight: 500;">No companies match that name. Try the ticker instead.</div>`
             : ''
         }
         ${
           state.searchState === 'rate-limited'
-            ? `<div class="mt-2.5 text-xs text-amber-700 font-medium">Company lookup is rate-limited. Try again in a moment.</div>`
+            ? `<div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--down); font-weight: 500;">Company lookup is rate-limited. Try again in a moment.</div>`
             : ''
         }
         ${
           state.searchState === 'refused'
-            ? `<div class="mt-2.5 text-xs text-rose-700 font-medium">We can't reach the company lookup right now.</div>`
+            ? `<div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--down); font-weight: 500;">We can't reach the company lookup right now.</div>`
             : ''
         }
 
@@ -543,9 +553,9 @@ function render() {
         ${
           state.searchMatches.length > 0
             ? `
-            <div class="mt-2.5 bg-white border border-[#e5e7eb] rounded-lg shadow-sm overflow-hidden divide-y divide-[#f3f4f6]">
-              <div class="px-3 py-1.5 bg-[#f9fafb] text-[11px] font-semibold tracking-wider text-neutral-500 uppercase">
-                Select Listing
+            <div class="search-dropdown">
+              <div style="padding: 0.35rem 0.85rem; background: rgba(27, 31, 26, 0.04); font-size: 0.72rem; color: var(--slate); border-bottom: 1px solid var(--rule);">
+                Select listing
               </div>
               ${state.searchMatches
                 .map(
@@ -553,17 +563,17 @@ function render() {
                 <button
                   type="button"
                   data-symbol="${m.symbol}"
-                  class="search-result-row w-full text-left px-3.5 py-2.5 hover:bg-[#f3f4f6] transition-colors flex items-center justify-between gap-3 cursor-pointer"
+                  class="search-result-row"
                 >
-                  <div class="min-w-0">
-                    <span class="font-mono font-bold text-sm text-neutral-900 mr-2">${m.symbol}</span>
-                    <span class="text-sm text-neutral-700 truncate">${m.name}</span>
+                  <div class="min-w-0 flex items-baseline gap-2">
+                    <span style="font-family: var(--font-mono); font-weight: 600; font-size: 0.85rem; color: var(--ink);">${m.symbol}</span>
+                    <span style="font-size: 0.85rem; color: var(--ink);" class="truncate">${m.name}</span>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
-                    <span class="text-xs text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded">${m.region}</span>
+                    <span style="font-size: 0.72rem; color: var(--slate);">${m.region}</span>
                     ${
                       m.facility
-                        ? `<span class="text-[11px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Facility mapped</span>`
+                        ? `<span style="font-size: 0.72rem; color: var(--up);">Facility mapped</span>`
                         : ''
                     }
                   </div>
@@ -577,15 +587,15 @@ function render() {
         }
 
         <!-- Quick suggestion pills for testing -->
-        <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
-          <span class="font-medium text-neutral-400">Quick test:</span>
+        <div class="quick-picks">
+          <span>Quick test:</span>
           ${['WMT', 'AAPL', 'TSLA', 'NVDA', 'BA', 'CAT']
             .map(
               (sym) => `
             <button
               type="button"
               data-quick-symbol="${sym}"
-              class="quick-pick-btn px-2 py-0.5 bg-white border border-[#e5e7eb] hover:border-neutral-400 rounded text-neutral-700 font-mono text-[11px] transition-colors cursor-pointer"
+              class="quick-pick-btn"
             >
               ${sym}
             </button>
@@ -595,62 +605,28 @@ function render() {
         </div>
       </section>
 
-      <!-- PANEL A · COMPANY HEADER -->
-      <section id="panel-header" class="bg-white border border-[#e5e7eb] rounded-xl p-5 mb-6 shadow-2xs">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <h1 class="text-2xl font-bold text-neutral-900 tracking-tight">${name}</h1>
-              <span class="px-2.5 py-0.5 text-xs font-mono font-semibold bg-neutral-100 text-neutral-800 rounded-md border border-neutral-200">
-                ${symbol}
-              </span>
-              <span class="text-xs text-neutral-500 font-medium">
-                ${region}
-              </span>
-            </div>
-            <div class="mt-1.5 flex items-center gap-1.5 text-xs text-neutral-600">
-              <svg class="w-3.5 h-3.5 text-neutral-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span class="font-medium text-neutral-700">${facilityLabel}</span>
-            </div>
-          </div>
-
-          <!-- Three Provider Status Chips -->
-          <div class="flex flex-wrap items-center gap-2 shrink-0">
-            ${getStatusChip('satellite', 'Satellite')}
-            ${getStatusChip('news', 'News')}
-            ${getStatusChip('price', 'Price')}
-          </div>
-        </div>
-      </section>
-
-      <!-- CROSS-PANEL SYNTHESIS (Above the three panels) -->
+      <!-- CROSS-PANEL SYNTHESIS (Above the satellite hero) -->
       ${renderCrossPanelSynthesis()}
 
-      <!-- TWO-THIRDS / ONE-THIRD SPLIT (Satellite Left, Price Right) -->
-      <div class="dashboard-grid mb-6">
+      <!-- HERO · SATELLITE (Full Width) -->
+      <section id="panel-satellite" class="instrument-section satellite-panel-body">
+        <div>
+          <div class="panel-header-bar">
+            <div>
+              <h2 class="panel-heading">Main facility</h2>
+              ${
+                state.satelliteFallback
+                  ? `<p style="font-size: 0.72rem; color: var(--down); margin: 0.2rem 0 0 0;">Landsat unavailable — showing basemap imagery.</p>`
+                  : ''
+              }
+            </div>
 
-        <!-- PANEL B · SATELLITE (Left 2/3) -->
-        <section id="panel-satellite" class="bg-white border border-[#e5e7eb] rounded-xl p-5 shadow-2xs flex flex-col justify-between satellite-panel-body">
-          <div>
-            <div class="flex items-start justify-between mb-3 gap-3 flex-wrap">
-              <div>
-                <h2 class="text-xs font-bold tracking-wider uppercase text-neutral-500">
-                  Main Facility · ${
-                    state.satelliteSource === 'esri' || state.compareSource === 'esri'
-                      ? 'ESRI WORLD IMAGERY'
-                      : state.satelliteSource === 'landsat' || state.compareSource === 'landsat'
-                      ? 'LANDSAT'
-                      : 'LANDSAT'
-                  }
-                </h2>
-                ${
-                  state.satelliteFallback
-                    ? `<p class="text-xs text-amber-700 font-medium mt-0.5">Landsat unavailable — showing basemap imagery.</p>`
-                    : ''
-                }
+            <div class="flex items-center gap-4 flex-wrap">
+              <!-- Three Provider Status Chips -->
+              <div class="status-chips-group">
+                ${getStatusChip('satellite', 'Satellite')}
+                ${getStatusChip('news', 'News')}
+                ${getStatusChip('price', 'Price')}
               </div>
 
               <!-- Compare with... control -->
@@ -658,7 +634,7 @@ function render() {
                 <select
                   id="compare-facility-select"
                   aria-label="Compare with another company facility"
-                  class="text-xs text-neutral-700 bg-white border border-[#e5e7eb] rounded-md px-2.5 py-1 hover:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400 cursor-pointer"
+                  class="compare-select"
                 >
                   <option value="">Compare with…</option>
                   ${Object.values(FACILITIES)
@@ -678,7 +654,7 @@ function render() {
                   <button
                     type="button"
                     id="exit-compare-btn"
-                    class="text-xs text-neutral-500 hover:text-neutral-800 px-2 py-1 rounded hover:bg-neutral-100 transition-colors cursor-pointer border border-[#e5e7eb]"
+                    class="compare-exit-btn"
                     title="Exit compare mode"
                   >
                     Exit
@@ -688,139 +664,177 @@ function render() {
                 }
               </div>
             </div>
+          </div>
 
-            ${
-              state.compareSymbol && FACILITIES[state.compareSymbol]
+          ${
+            state.compareSymbol && FACILITIES[state.compareSymbol]
+              ? `
+            <!-- COMPARE MODE: Split into side-by-side tile grids AT THE SAME ZOOM, collapsed to stacked under 820px -->
+            <div class="grid grid-cols-1 min-[820px]:grid-cols-2 gap-4">
+              <!-- Primary Company -->
+              <div class="flex flex-col">
+                <div class="compare-viewport-container">
+                  ${renderViewportContent(state.satelliteState, state.satelliteSource, state.satelliteTiles, state.satelliteImageUrl, facilityLabel)}
+                  <div class="hero-scrim-overlay">
+                    <h1 class="hero-company-name" style="font-size: 1.35rem;">${name}</h1>
+                    <div class="hero-meta-row" style="font-size: 0.75rem;">
+                      <span class="hero-ticker">${symbol}</span>
+                      ${region && region !== '—' ? `<span>·</span><span>${region}</span>` : ''}
+                      ${
+                        ninetyDayDiffStr
+                          ? `<span>·</span><span class="hero-price-tag ${ninetyDayIsPos ? 'hero-price-up' : 'hero-price-down'}">${ninetyDayDiffStr} 90d</span>`
+                          : ''
+                      }
+                    </div>
+                    <div class="hero-facility-label">${facilityLabel}</div>
+                  </div>
+                </div>
+                ${renderProfileStrip(comp?.facility)}
+              </div>
+
+              <!-- Compared Company -->
+              <div class="flex flex-col">
+                <div class="compare-viewport-container">
+                  ${renderViewportContent(state.compareState, state.compareSource, state.compareTiles, state.compareImageUrl, FACILITIES[state.compareSymbol].label)}
+                  <div class="hero-scrim-overlay">
+                    <div class="hero-company-name" style="font-size: 1.35rem;">${FACILITIES[state.compareSymbol].name}</div>
+                    <div class="hero-meta-row" style="font-size: 0.75rem;">
+                      <span class="hero-ticker">${FACILITIES[state.compareSymbol].symbol}</span>
+                      <span>·</span>
+                      <span>Comparison</span>
+                    </div>
+                    <div class="hero-facility-label">${FACILITIES[state.compareSymbol].label}</div>
+                  </div>
+                </div>
+                ${renderProfileStrip(FACILITIES[state.compareSymbol])}
+              </div>
+            </div>
+
+            <!-- Ratio line under the pair -->
+            ${(() => {
+              const ratioLine = computeRatioLine(name, comp?.facility, FACILITIES[state.compareSymbol]);
+              return ratioLine
                 ? `
-              <!-- COMPARE MODE: Split into side-by-side tile grids AT THE SAME ZOOM, collapsed to stacked under 820px -->
-              <div class="grid grid-cols-1 min-[820px]:grid-cols-2 gap-4">
-                <!-- Primary Company -->
-                <div class="flex flex-col">
-                  <div class="mb-2">
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-semibold text-neutral-900 truncate">${name} (${symbol})</span>
-                      <span class="text-[10px] font-mono uppercase tracking-wider text-neutral-400 shrink-0 ml-2">Active</span>
-                    </div>
-                    <p class="text-[11px] text-neutral-500 truncate mt-0.5">${facilityLabel}</p>
-                  </div>
-                  <div class="relative w-full h-[260px] bg-neutral-100 rounded-lg overflow-hidden border border-[#e5e7eb] flex items-center justify-center text-center">
-                    ${renderViewportContent(state.satelliteState, state.satelliteSource, state.satelliteTiles, state.satelliteImageUrl, facilityLabel)}
-                  </div>
-                  ${renderProfileStrip(comp?.facility)}
-                </div>
-
-                <!-- Compared Company -->
-                <div class="flex flex-col">
-                  <div class="mb-2">
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-semibold text-neutral-900 truncate">${FACILITIES[state.compareSymbol].name} (${FACILITIES[state.compareSymbol].symbol})</span>
-                      <span class="text-[10px] font-mono uppercase tracking-wider text-neutral-400 shrink-0 ml-2">Comparison</span>
-                    </div>
-                    <p class="text-[11px] text-neutral-500 truncate mt-0.5">${FACILITIES[state.compareSymbol].label}</p>
-                  </div>
-                  <div class="relative w-full h-[260px] bg-neutral-100 rounded-lg overflow-hidden border border-[#e5e7eb] flex items-center justify-center text-center">
-                    ${renderViewportContent(state.compareState, state.compareSource, state.compareTiles, state.compareImageUrl, FACILITIES[state.compareSymbol].label)}
-                  </div>
-                  ${renderProfileStrip(FACILITIES[state.compareSymbol])}
-                </div>
+              <div style="margin-top: 0.75rem; padding: 0.4rem 0; border-top: 1px solid var(--rule); font-size: 0.75rem; color: var(--ink); font-variant-numeric: tabular-nums;">
+                ${ratioLine}
               </div>
-
-              <!-- Ratio line under the pair -->
-              ${(() => {
-                const ratioLine = computeRatioLine(name, comp?.facility, FACILITIES[state.compareSymbol]);
-                return ratioLine
-                  ? `
-                <div class="mt-3.5 py-2 px-3 bg-neutral-50 border border-neutral-200/80 rounded-md text-xs text-neutral-700 font-medium">
-                  ${ratioLine}
-                </div>
-              `
-                  : '';
-              })()}
             `
-                : `
-              <!-- SINGLE MODE -->
-              <div class="relative w-full h-[280px] bg-neutral-100 rounded-lg overflow-hidden border border-[#e5e7eb] flex items-center justify-center text-center">
-                ${renderViewportContent(state.satelliteState, state.satelliteSource, state.satelliteTiles, state.satelliteImageUrl, facilityLabel)}
-              </div>
-
+                : '';
+            })()}
+          `
+              : `
+            <!-- SINGLE MODE: Hero with overlaid text on lower left -->
+            <div class="hero-viewport-container">
+              ${renderViewportContent(state.satelliteState, state.satelliteSource, state.satelliteTiles, state.satelliteImageUrl, facilityLabel)}
               ${
-                state.satelliteSource === 'landsat' && state.satelliteCaptureDate
+                state.selectedCompany
                   ? `
-                <div class="mt-2 text-xs text-neutral-500 font-mono">
-                  Captured: ${state.satelliteCaptureDate}
+                <div class="hero-scrim-overlay">
+                  <h1 class="hero-company-name">${name}</h1>
+                  <div class="hero-meta-row">
+                    <span class="hero-ticker">${symbol}</span>
+                    ${region && region !== '—' ? `<span>·</span><span>${region}</span>` : ''}
+                    ${
+                      ninetyDayDiffStr
+                        ? `<span>·</span><span class="hero-price-tag ${ninetyDayIsPos ? 'hero-price-up' : 'hero-price-down'}">${ninetyDayDiffStr} 90d</span>`
+                        : ''
+                    }
+                  </div>
+                  ${facilityLabel ? `<div class="hero-facility-label">${facilityLabel}</div>` : ''}
                 </div>
               `
                   : ''
               }
+            </div>
 
-              <!-- Profile Strip directly under image -->
-              ${renderProfileStrip(comp?.facility)}
+            ${
+              state.satelliteSource === 'landsat' && state.satelliteCaptureDate
+                ? `
+              <div style="margin-top: 0.4rem; font-size: 0.72rem; color: var(--slate); font-family: var(--font-mono);">
+                Captured: ${state.satelliteCaptureDate}
+              </div>
             `
+                : ''
             }
 
-            <!-- Disclaimer directly below profile strip and above caption -->
-            <p class="mt-3 text-[11px] text-neutral-400 leading-normal">
-              This panel shows scale and site type. It does not show activity. Measuring change would need dated, repeat imagery from a commercial provider — the input we don't have.
-            </p>
-          </div>
+            <!-- Profile Strip directly under image -->
+            ${renderProfileStrip(comp?.facility)}
+          `
+          }
 
-          <!-- Fixed Caption, ALWAYS VISIBLE -->
-          <div class="mt-4 pt-3 border-t border-[#f3f4f6]">
-            <p class="text-xs text-neutral-500 leading-relaxed">
-              ${
-                state.satelliteSource === 'esri' || state.compareSource === 'esri'
-                  ? 'Esri World Imagery basemap. Capture date varies by location and is not published per tile — this shows what the site looks like, but not when. Not a demand or revenue signal.'
-                  : 'Landsat 8, roughly 30m per pixel, 16-day revisit. Shows site context and long-run change. It cannot resolve vehicles and is not a demand or revenue signal.'
-              }
-            </p>
-          </div>
-        </section>
+          <!-- Disclaimer directly below profile strip and above caption -->
+          <p style="margin-top: 0.75rem; font-size: 0.72rem; color: var(--slate); line-height: 1.4;">
+            This panel shows scale and site type. It does not show activity. Measuring change would need dated, repeat imagery from a commercial provider — the input we don't have.
+          </p>
+        </div>
 
-        <!-- PANEL C · PRICE (Right 1/3) -->
-        <section id="panel-price" class="bg-white border border-[#e5e7eb] rounded-xl p-5 shadow-2xs flex flex-col justify-between price-panel-body">
+        <!-- Fixed Caption, ALWAYS VISIBLE with bottom-right attribution -->
+        <div class="panel-bottom-bar">
+          <p style="margin: 0; font-size: 0.72rem; color: var(--slate); line-height: 1.4; max-width: 65ch;">
+            ${
+              state.satelliteSource === 'esri' || state.compareSource === 'esri'
+                ? 'Esri World Imagery basemap. Capture date varies by location and is not published per tile — this shows what the site looks like, but not when. Not a demand or revenue signal.'
+                : 'Landsat 8, roughly 30m per pixel, 16-day revisit. Shows site context and long-run change. It cannot resolve vehicles and is not a demand or revenue signal.'
+            }
+          </p>
+          <span class="panel-attribution">
+            ${
+              state.satelliteSource === 'esri' || state.compareSource === 'esri'
+                ? 'Esri World Imagery'
+                : 'NASA / Landsat 8'
+            }
+          </span>
+        </div>
+      </section>
+
+      <!-- LOWER GRID · PRICE & NEWS (Denser and Quieter) -->
+      <div class="lower-sections-grid">
+
+        <!-- PANEL C · PRICE -->
+        <section id="panel-price" class="instrument-section price-panel-body">
           <div>
-            <h2 class="text-xs font-bold tracking-wider uppercase text-neutral-500 mb-2">
-              Share Price · Ninety-Day Close
-            </h2>
+            <div class="panel-header-bar">
+              <h2 class="panel-heading">Share price, ninety-day close</h2>
+            </div>
 
             ${(() => {
               if (state.priceState === 'loading') {
                 return `
-                  <div class="h-[260px] flex flex-col items-center justify-center gap-2">
-                    <div class="w-5 h-5 border-2 border-neutral-300 border-t-neutral-800 rounded-full animate-spin"></div>
-                    <p class="text-sm text-neutral-600 font-medium">Loading ninety days of closes…</p>
+                  <div class="h-[240px] flex flex-col items-center justify-center gap-2">
+                    <div class="w-5 h-5 border-2 border-[#D8D9D2] border-t-[#1B1F1A] rounded-full animate-spin"></div>
+                    <p style="font-size: 0.85rem; color: var(--slate);">Loading ninety days of closes…</p>
                   </div>
                 `;
               }
 
               if (state.priceState === 'empty') {
                 return `
-                  <div class="h-[260px] flex items-center justify-center text-center p-4">
-                    <p class="text-sm text-neutral-600">No price history for this symbol. It may be delisted or not covered.</p>
+                  <div class="h-[240px] flex items-center justify-center text-center p-4">
+                    <p style="font-size: 0.85rem; color: var(--slate);">No price history for this symbol. It may be delisted or not covered.</p>
                   </div>
                 `;
               }
 
               if (state.priceState === 'refused') {
                 return `
-                  <div class="h-[260px] flex items-center justify-center text-center p-4">
-                    <p class="text-sm text-rose-700 font-medium">The price provider rejected our credential.</p>
+                  <div class="h-[240px] flex items-center justify-center text-center p-4">
+                    <p style="font-size: 0.85rem; color: var(--down); font-weight: 500;">The price provider rejected our credential.</p>
                   </div>
                 `;
               }
 
               if (state.priceState === 'unreachable') {
                 return `
-                  <div class="h-[260px] flex items-center justify-center text-center p-4">
-                    <p class="text-sm text-neutral-600 font-medium">Can't reach the price provider.</p>
+                  <div class="h-[240px] flex items-center justify-center text-center p-4">
+                    <p style="font-size: 0.85rem; color: var(--slate); font-weight: 500;">Can't reach the price provider.</p>
                   </div>
                 `;
               }
 
               if (state.priceState === 'rate-limited' && !state.priceData?.prices?.length) {
                 return `
-                  <div class="h-[260px] flex items-center justify-center text-center p-4">
-                    <p class="text-sm text-amber-800 font-medium">Price data is rate-limited right now. Try again in a moment.</p>
+                  <div class="h-[240px] flex items-center justify-center text-center p-4">
+                    <p style="font-size: 0.85rem; color: var(--down); font-weight: 500;">Price data is rate-limited right now. Try again in a moment.</p>
                   </div>
                 `;
               }
@@ -836,26 +850,22 @@ function render() {
                 const sign = isPos ? '+' : '';
 
                 return `
-                  <!-- Leading with the ninety-day trend rather than today's number -->
-                  <div class="mt-1 mb-3">
-                    <div class="flex items-baseline gap-2">
-                      <span class="text-2xl font-bold font-mono tracking-tight ${isPos ? 'text-emerald-700' : 'text-rose-700'}">
-                        ${sign}${pct.toFixed(2)}%
-                      </span>
-                      <span class="text-xs font-semibold px-1.5 py-0.5 rounded ${isPos ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}">
-                        ${sign}$${diff.toFixed(2)} 90d
-                      </span>
+                  <!-- Leading with ninety-day price change at 3.2rem -->
+                  <div class="mt-1 mb-2">
+                    <div class="price-change-headline ${isPos ? 'up' : 'down'}">
+                      ${sign}${pct.toFixed(2)}%
                     </div>
 
-                    <div class="text-xs text-neutral-500 mt-1 flex items-center justify-between">
-                      <span>Last close: <strong class="text-neutral-800 font-mono font-semibold">$${lastClose.toFixed(2)}</strong></span>
-                      <span class="font-mono text-[11px]">${formatDate(prices[prices.length - 1].date)}</span>
+                    <div class="price-substats">
+                      <span>${sign}$${diff.toFixed(2)} 90d</span>
+                      <span>Last close: <strong>$${lastClose.toFixed(2)}</strong></span>
+                      <span>${formatDate(prices[prices.length - 1].date)}</span>
                     </div>
 
                     ${
                       state.priceData?.stale || state.priceState === 'rate-limited'
                         ? `
-                      <div class="mt-2 text-[11px] text-amber-800 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                      <div style="margin-top: 0.5rem; font-size: 0.72rem; color: var(--down); padding: 0.25rem 0;">
                         Price data is rate-limited right now. Showing the last figures we have, from ${formatTime(state.priceData?.cachedAt || '')}.
                       </div>
                     `
@@ -864,144 +874,124 @@ function render() {
                   </div>
 
                   <!-- Inline SVG Chart -->
-                  <div class="mt-2 bg-[#fcfdfd] border border-[#f3f4f6] rounded-lg p-1.5">
+                  <div class="price-chart-wrap">
                     ${generatePriceChartSvg(prices)}
                   </div>
                 `;
               }
 
               return `
-                <div class="h-[260px] flex items-center justify-center text-center p-4">
-                  <p class="text-sm text-neutral-400">Enter a company ticker above to inspect 90-day closes.</p>
+                <div class="h-[240px] flex items-center justify-center text-center p-4">
+                  <p style="font-size: 0.85rem; color: var(--slate);">Enter a company ticker above to inspect 90-day closes.</p>
                 </div>
               `;
             })()}
           </div>
 
-          <div class="mt-4 pt-3 border-t border-[#f3f4f6] text-[11px] text-neutral-400 flex items-center justify-between">
+          <div class="panel-bottom-bar">
             <span>Daily closes (compact)</span>
-            <span>Alpha Vantage</span>
+            <span class="panel-attribution">Alpha Vantage</span>
           </div>
         </section>
 
-      </div>
+        <!-- PANEL D · NEWS -->
+        <section id="panel-news" class="instrument-section news-panel-body">
+          <div class="panel-header-bar">
+            <h2 class="panel-heading">Recent coverage</h2>
+            <span class="panel-attribution">The Guardian · Summary Only Licence</span>
+          </div>
 
-      <!-- PANEL D · NEWS (Full Width Beneath as Five Rows Rather than Cards) -->
-      <section id="panel-news" class="bg-white border border-[#e5e7eb] rounded-xl p-5 shadow-2xs mb-8 news-panel-body">
-        <div class="flex items-center justify-between mb-4 pb-2 border-b border-[#f3f4f6]">
-          <h2 class="text-xs font-bold tracking-wider uppercase text-neutral-500">
-            Recent Coverage · The Guardian (Newest First)
-          </h2>
-          <span class="text-[11px] text-neutral-400">Summary Only Licence</span>
-        </div>
+          ${(() => {
+            if (state.newsState === 'loading') {
+              return `
+                <div class="h-[280px] flex flex-col items-center justify-center gap-2">
+                  <div class="w-5 h-5 border-2 border-[#D8D9D2] border-t-[#1B1F1A] rounded-full animate-spin"></div>
+                  <p style="font-size: 0.85rem; color: var(--slate);">Searching recent coverage…</p>
+                </div>
+              `;
+            }
 
-        ${(() => {
-          if (state.newsState === 'loading') {
-            return `
-              <div class="h-[320px] flex flex-col items-center justify-center gap-2">
-                <div class="w-5 h-5 border-2 border-neutral-300 border-t-neutral-800 rounded-full animate-spin"></div>
-                <p class="text-sm text-neutral-600 font-medium">Searching recent coverage…</p>
-              </div>
-            `;
-          }
+            if (state.newsState === 'empty') {
+              return `
+                <div class="h-[200px] flex items-center justify-center text-center p-6">
+                  <p style="font-size: 0.85rem; color: var(--slate); max-width: 44ch;">
+                    No Guardian coverage of this company in the archive. That's not unusual for smaller listings.
+                  </p>
+                </div>
+              `;
+            }
 
-          if (state.newsState === 'empty') {
-            return `
-              <div class="h-[240px] flex items-center justify-center text-center p-6">
-                <p class="text-sm text-neutral-600 max-w-md">
-                  No Guardian coverage of this company in the archive. That's not unusual for smaller listings.
-                </p>
-              </div>
-            `;
-          }
+            if (state.newsState === 'refused') {
+              return `
+                <div class="h-[200px] flex items-center justify-center text-center p-6">
+                  <p style="font-size: 0.85rem; color: var(--down); font-weight: 500;">The Guardian rejected our credential.</p>
+                </div>
+              `;
+            }
 
-          if (state.newsState === 'refused') {
-            return `
-              <div class="h-[240px] flex items-center justify-center text-center p-6">
-                <p class="text-sm text-rose-700 font-medium">The Guardian rejected our credential.</p>
-              </div>
-            `;
-          }
+            if (state.newsState === 'unreachable') {
+              return `
+                <div class="h-[200px] flex items-center justify-center text-center p-6">
+                  <p style="font-size: 0.85rem; color: var(--slate); font-weight: 500;">Can't reach the Guardian.</p>
+                </div>
+              `;
+            }
 
-          if (state.newsState === 'unreachable') {
-            return `
-              <div class="h-[240px] flex items-center justify-center text-center p-6">
-                <p class="text-sm text-neutral-600 font-medium">Can't reach the Guardian.</p>
-              </div>
-            `;
-          }
-
-          if (state.newsItems.length > 0) {
-            return `
-              <div class="divide-y divide-[#f3f4f6]">
-                ${state.newsItems
-                  .map(
-                    (item) => `
-                  <article class="py-3.5 first:pt-1 last:pb-1 flex flex-col sm:flex-row sm:items-start justify-between gap-3 group">
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2 flex-wrap mb-1">
-                        <span class="px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-neutral-100 text-neutral-700 rounded">
-                          ${item.section}
-                        </span>
-                        <time class="text-xs text-neutral-400 font-mono">
-                          ${formatDate(item.date)}
-                        </time>
-                      </div>
-                      <h3 class="text-base font-semibold text-neutral-900 group-hover:text-blue-600 transition-colors">
-                        <a href="${item.webUrl}" target="_blank" rel="noopener noreferrer" class="hover:underline">
+            if (state.newsItems.length > 0) {
+              return `
+                <div class="news-editorial-list">
+                  ${state.newsItems
+                    .map(
+                      (item) => `
+                    <article class="news-editorial-row">
+                      <h3 class="news-headline">
+                        <a href="${item.webUrl}" target="_blank" rel="noopener noreferrer">
                           ${item.headline}
                         </a>
                       </h3>
                       <!-- Excerpt truncated strictly to 200 characters server-side -->
-                      <p class="mt-1 text-sm text-neutral-600 leading-relaxed font-normal">
+                      <p class="news-excerpt">
                         ${item.excerpt}
                       </p>
-                    </div>
+                      <div class="news-meta-line">
+                        <time datetime="${item.date}">${formatDate(item.date)}</time>
+                        <span>·</span>
+                        <span>${item.section}</span>
+                      </div>
+                    </article>
+                  `
+                    )
+                    .join('')}
+                </div>
+              `;
+            }
 
-                    <a
-                      href="${item.webUrl}"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="shrink-0 self-start mt-1 text-xs text-neutral-400 group-hover:text-neutral-900 flex items-center gap-1 font-medium transition-colors"
-                      title="Open full article on The Guardian"
-                    >
-                      Read
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                  </article>
-                `
-                  )
-                  .join('')}
+            return `
+              <div class="h-[200px] flex items-center justify-center text-center p-6">
+                <p style="font-size: 0.85rem; color: var(--slate);">Select a company to load recent journalistic coverage.</p>
               </div>
             `;
-          }
+          })()}
+        </section>
 
-          return `
-            <div class="h-[240px] flex items-center justify-center text-center p-6">
-              <p class="text-sm text-neutral-400">Select a company to load recent journalistic coverage.</p>
-            </div>
-          `;
-        })()}
-      </section>
+      </div>
 
       <!-- FOOTER -->
-      <footer class="pt-6 border-t border-[#e5e7eb] text-xs text-neutral-500 leading-relaxed flex flex-col md:flex-row items-center justify-between gap-4">
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <footer class="site-footer">
+        <div class="footer-credits">
           <span>
-            <a href="https://www.theguardian.com" target="_blank" rel="noopener noreferrer" class="hover:text-neutral-800 underline underline-offset-2">
+            <a href="https://www.theguardian.com" target="_blank" rel="noopener noreferrer">
               Powered by the Guardian
             </a>
           </span>
-          <span>•</span>
+          <span>·</span>
           <span>Imagery courtesy of NASA Earth Science / Landsat</span>
-          <span>•</span>
+          <span>·</span>
           <span>Basemap tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community</span>
-          <span>•</span>
+          <span>·</span>
           <span>Market data provided by Alpha Vantage</span>
         </div>
-        <div class="text-neutral-400 text-center md:text-right">
+        <div class="footer-disclaimer">
           This dashboard is a preliminary research aid and does not constitute financial or investment advice.
         </div>
       </footer>
