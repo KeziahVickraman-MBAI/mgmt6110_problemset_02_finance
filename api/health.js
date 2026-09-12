@@ -1,0 +1,109 @@
+export default async function handler(req, res) {
+  const nasaKey = process.env.NASA_API_KEY;
+  const guardianKey = process.env.GUARDIAN_API_KEY;
+  const avKey = process.env.ALPHAVANTAGE_API_KEY;
+
+  const result = {
+    satellite: {
+      provider: 'NASA Landsat',
+      keyConfigured: Boolean(nasaKey && nasaKey.trim().length > 0),
+      answered: false,
+      status: null,
+      state: 'down' // 'up' | 'degraded' | 'down'
+    },
+    news: {
+      provider: 'The Guardian',
+      keyConfigured: Boolean(guardianKey && guardianKey.trim().length > 0),
+      answered: false,
+      status: null,
+      state: 'down'
+    },
+    price: {
+      provider: 'Alpha Vantage',
+      keyConfigured: Boolean(avKey && avKey.trim().length > 0),
+      answered: false,
+      status: null,
+      state: 'down'
+    }
+  };
+
+  // Check NASA status (specifically the Earth planetary endpoint)
+  if (result.satellite.keyConfigured) {
+    try {
+      // Testing NASA Earth assets endpoint with short timeout to catch current upstream outage
+      const nasaRes = await fetch(
+        `https://api.nasa.gov/planetary/earth/assets?lon=-94.218&lat=36.366&date=2024-06-01&dim=0.15&api_key=${encodeURIComponent(nasaKey)}`,
+        { signal: AbortSignal.timeout(4000) }
+      );
+      result.satellite.status = nasaRes.status;
+      result.satellite.answered = true;
+      if (nasaRes.ok) {
+        result.satellite.state = 'up';
+      } else if (nasaRes.status === 401 || nasaRes.status === 403) {
+        result.satellite.state = 'down';
+      } else {
+        result.satellite.state = 'degraded';
+      }
+    } catch (err) {
+      result.satellite.answered = false;
+      result.satellite.status = 504;
+      result.satellite.state = 'down';
+    }
+  }
+
+  // Check Guardian status
+  if (result.news.keyConfigured) {
+    try {
+      const gRes = await fetch(
+        `https://content.guardianapis.com/search?page-size=1&api-key=${encodeURIComponent(guardianKey)}`,
+        { signal: AbortSignal.timeout(4000) }
+      );
+      result.news.status = gRes.status;
+      result.news.answered = true;
+      if (gRes.ok) {
+        result.news.state = 'up';
+      } else if (gRes.status === 401 || gRes.status === 403) {
+        result.news.state = 'down';
+      } else {
+        result.news.state = 'degraded';
+      }
+    } catch (err) {
+      result.news.answered = false;
+      result.news.status = 504;
+      result.news.state = 'down';
+    }
+  }
+
+  // Check Alpha Vantage status
+  if (result.price.keyConfigured) {
+    try {
+      const avRes = await fetch(
+        `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=IBM&apikey=${encodeURIComponent(avKey)}`,
+        { signal: AbortSignal.timeout(4000) }
+      );
+      result.price.status = avRes.status;
+      result.price.answered = true;
+      if (avRes.ok) {
+        const text = await avRes.clone().text();
+        if (text.includes('Information') || text.includes('Note')) {
+          result.price.state = 'degraded';
+        } else if (text.includes('Error Message')) {
+          result.price.state = 'down';
+        } else {
+          result.price.state = 'up';
+        }
+      } else if (avRes.status === 401 || avRes.status === 403) {
+        result.price.state = 'down';
+      } else {
+        result.price.state = 'degraded';
+      }
+    } catch (err) {
+      result.price.answered = false;
+      result.price.status = 504;
+      result.price.state = 'down';
+    }
+  }
+
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json(result);
+}
