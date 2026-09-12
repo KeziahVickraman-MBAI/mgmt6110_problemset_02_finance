@@ -1,6 +1,87 @@
+// Web Mercator tile calculation helper
+function toTile(lat, lon, z) {
+  const n = 2 ** z;
+  const x = Math.floor(((lon + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n
+  );
+  return { x, y, z };
+}
+
 export default async function handler(req, res) {
+  // 1. Check if this is a request for a proxied Esri tile: /api/satellite?z=16&y=...&x=...
+  const { z, y, x, raw } = req.query || {};
+
+  if (z !== undefined && y !== undefined && x !== undefined) {
+    const zoom = parseInt(z, 10);
+    const tileY = parseInt(y, 10);
+    const tileX = parseInt(x, 10);
+
+    if (isNaN(zoom) || isNaN(tileY) || isNaN(tileX)) {
+      return res.status(400).json({
+        error: 'invalid_params',
+        message: "Parameters 'z', 'y', and 'x' must be integers."
+      });
+    }
+
+    // ArcGIS REST World Imagery endpoint: /{z}/{y}/{x} (Note: y then x)
+    const esriTileUrl = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${tileY}/${tileX}`;
+
+    try {
+      const tileRes = await fetch(esriTileUrl, {
+        signal: AbortSignal.timeout(6000)
+      });
+
+      if (!tileRes.ok) {
+        return res.status(tileRes.status === 404 ? 404 : 502).json({
+          error: 'tile_unavailable',
+          message: `Esri tile unavailable (HTTP ${tileRes.status})`
+        });
+      }
+
+      const imageArrayBuffer = await tileRes.arrayBuffer();
+      const imageBuffer = Buffer.from(imageArrayBuffer);
+
+      res.setHeader('Content-Type', tileRes.headers.get('content-type') || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, s-maxage=86400, max-age=86400');
+      return res.status(200).send(imageBuffer);
+    } catch (tileErr) {
+      return res.status(504).json({
+        error: 'unreachable',
+        message: "Can't reach Esri tile service."
+      });
+    }
+  }
+
+  // 2. Check if this is a request for raw Landsat imagery
   const { lat, lon, date } = req.query || {};
 
+  if (raw === 'landsat') {
+    const apiKey = process.env.NASA_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({
+        error: 'missing_credential',
+        message: 'NASA_API_KEY is not configured.'
+      });
+    }
+    const captureDate = (date || '2024-06-01').trim();
+    const imageryUrl = `https://api.nasa.gov/planetary/earth/imagery?lon=${encodeURIComponent(lon)}&lat=${encodeURIComponent(lat)}&date=${encodeURIComponent(captureDate)}&dim=0.15&api_key=${encodeURIComponent(apiKey)}`;
+    try {
+      const imageryRes = await fetch(imageryUrl, { signal: AbortSignal.timeout(8000) });
+      if (!imageryRes.ok) {
+        return res.status(imageryRes.status).json({ error: 'unreachable' });
+      }
+      const buffer = Buffer.from(await imageryRes.arrayBuffer());
+      res.setHeader('Content-Type', imageryRes.headers.get('content-type') || 'image/png');
+      res.setHeader('Cache-Control', 'public, s-maxage=86400, max-age=86400');
+      return res.status(200).send(buffer);
+    } catch {
+      return res.status(504).json({ error: 'unreachable' });
+    }
+  }
+
+  // 3. Main Satellite Request: Lat & Lon coordinates required
   if (!lat || !lon) {
     return res.status(400).json({
       error: 'invalid_params',
@@ -8,109 +89,90 @@ export default async function handler(req, res) {
     });
   }
 
-  // Guard BEFORE fetch: check if NASA_API_KEY is configured
-  const apiKey = process.env.NASA_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    return res.status(503).json({
-      error: 'missing_credential',
-      message: 'NASA_API_KEY is not configured.'
+  const latitude = parseFloat(lat);
+  const longitude = parseFloat(lon);
+  if (isNaN(latitude) || isNaN(longitude)) {
+    return res.status(400).json({
+      error: 'invalid_params',
+      message: "Parameters 'lat' and 'lon' must be valid numbers."
     });
   }
 
   const searchDate = (date || '2024-06-01').trim();
+  const apiKey = process.env.NASA_API_KEY;
 
-  try {
-    // 1. Assets lookup to find nearest available capture date
-    const assetsUrl = `https://api.nasa.gov/planetary/earth/assets?lon=${encodeURIComponent(lon)}&lat=${encodeURIComponent(lat)}&date=${encodeURIComponent(searchDate)}&dim=0.15&api_key=${encodeURIComponent(apiKey)}`;
-    
-    let assetsResponse;
+  // --- TIER 1: Try NASA Landsat as now ---
+  let landsatSuccess = false;
+  let landsatData = null;
+
+  if (apiKey && apiKey.trim().length > 0) {
     try {
-      assetsResponse = await fetch(assetsUrl, { signal: AbortSignal.timeout(6000) });
-    } catch (netErr) {
-      return res.status(504).json({
-        error: 'unreachable',
-        message: "Can't reach NASA's imagery service."
-      });
-    }
-
-    if (!assetsResponse.ok) {
-      if (assetsResponse.status === 401 || assetsResponse.status === 403) {
-        return res.status(401).json({
-          error: 'refused',
-          message: 'NASA rejected our credential. No imagery on this screen is current.'
-        });
+      const assetsUrl = `https://api.nasa.gov/planetary/earth/assets?lon=${encodeURIComponent(lon)}&lat=${encodeURIComponent(lat)}&date=${encodeURIComponent(searchDate)}&dim=0.15&api_key=${encodeURIComponent(apiKey)}`;
+      const assetsResponse = await fetch(assetsUrl, { signal: AbortSignal.timeout(2500) });
+      if (assetsResponse.ok) {
+        const assetData = await assetsResponse.json();
+        const captureDate = assetData?.date ? assetData.date.split('T')[0] : searchDate;
+        landsatSuccess = true;
+        landsatData = {
+          source: 'landsat',
+          captureDate,
+          url: `/api/satellite?raw=landsat&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&date=${encodeURIComponent(captureDate)}`
+        };
       }
-      if (assetsResponse.status === 404) {
-        return res.status(404).json({
-          error: 'no_capture',
-          message: `No cloud-free capture near that date. Nearest available: [date].`
-        });
-      }
-      return res.status(502).json({
-        error: 'unreachable',
-        message: "Can't reach NASA's imagery service."
-      });
+    } catch {
+      // NASA timed out or failed; silently proceed to Tier 2
+      landsatSuccess = false;
     }
+  }
 
-    let assetData;
-    try {
-      assetData = await assetsResponse.json();
-    } catch (parseErr) {
-      return res.status(502).json({
-        error: 'unreachable',
-        message: "Can't reach NASA's imagery service."
-      });
-    }
-
-    const captureDate = assetData?.date
-      ? assetData.date.split('T')[0]
-      : searchDate;
-
-    // 2. Fetch the actual PNG tile from /planetary/earth/imagery
-    const imageryUrl = `https://api.nasa.gov/planetary/earth/imagery?lon=${encodeURIComponent(lon)}&lat=${encodeURIComponent(lat)}&date=${encodeURIComponent(captureDate)}&dim=0.15&api_key=${encodeURIComponent(apiKey)}`;
-
-    let imageryResponse;
-    try {
-      imageryResponse = await fetch(imageryUrl, { signal: AbortSignal.timeout(8000) });
-    } catch (netErr) {
-      return res.status(504).json({
-        error: 'unreachable',
-        message: "Can't reach NASA's imagery service."
-      });
-    }
-
-    if (!imageryResponse.ok) {
-      if (imageryResponse.status === 401 || imageryResponse.status === 403) {
-        return res.status(401).json({
-          error: 'refused',
-          message: 'NASA rejected our credential. No imagery on this screen is current.'
-        });
-      }
-      if (imageryResponse.status === 404) {
-        return res.status(404).json({
-          error: 'no_capture',
-          message: `No cloud-free capture near that date. Nearest available: ${captureDate}.`
-        });
-      }
-      return res.status(502).json({
-        error: 'unreachable',
-        message: "Can't reach NASA's imagery service."
-      });
-    }
-
-    const imageArrayBuffer = await imageryResponse.arrayBuffer();
-    const imageBuffer = Buffer.from(imageArrayBuffer);
-
-    res.setHeader('Content-Type', imageryResponse.headers.get('content-type') || 'image/png');
-    res.setHeader('Capture-Date', captureDate);
-    res.setHeader('X-Capture-Date', captureDate);
-    res.setHeader('Access-Control-Expose-Headers', 'Capture-Date, X-Capture-Date');
+  if (landsatSuccess && landsatData) {
     res.setHeader('Cache-Control', 'public, s-maxage=86400, max-age=86400');
-    return res.status(200).send(imageBuffer);
-  } catch (err) {
-    return res.status(502).json({
+    return res.status(200).json(landsatData);
+  }
+
+  // --- TIER 2: On failure, fetch Esri World Imagery tiles ---
+  try {
+    const center = toTile(latitude, longitude, 16);
+
+    // Verify Esri tile service answers (check center tile)
+    const testUrl = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/16/${center.y}/${center.x}`;
+    const testRes = await fetch(testUrl, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(4000)
+    });
+
+    if (!testRes.ok) {
+      // Tier 3: Esri also failed -> fall through to unreachable state
+      return res.status(502).json({
+        error: 'unreachable',
+        message: "Can't reach satellite imagery service."
+      });
+    }
+
+    // Build 3x3 block centred on facility tile at zoom 16
+    // Top-left to bottom-right: y-1 to y+1, x-1 to x+1
+    const tiles = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const tileX = center.x + dx;
+        const tileY = center.y + dy;
+        tiles.push(`/api/satellite?z=16&y=${tileY}&x=${tileX}`);
+      }
+    }
+
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, max-age=86400');
+    return res.status(200).json({
+      source: 'esri',
+      fallback: true,
+      fallbackReason: 'Landsat unavailable — showing basemap imagery.',
+      tiles
+    });
+  } catch (esriErr) {
+    // --- TIER 3: If Esri also fails, fall through to unreachable state ---
+    return res.status(504).json({
       error: 'unreachable',
-      message: "Can't reach NASA's imagery service."
+      message: "Can't reach satellite imagery service."
     });
   }
 }
+

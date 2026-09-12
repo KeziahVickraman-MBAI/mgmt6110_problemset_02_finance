@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       // Testing NASA Earth assets endpoint with short timeout to catch current upstream outage
       const nasaRes = await fetch(
         `https://api.nasa.gov/planetary/earth/assets?lon=-94.218&lat=36.366&date=2024-06-01&dim=0.15&api_key=${encodeURIComponent(nasaKey)}`,
-        { signal: AbortSignal.timeout(4000) }
+        { signal: AbortSignal.timeout(2500) }
       );
       result.satellite.status = nasaRes.status;
       result.satellite.answered = true;
@@ -48,6 +48,25 @@ export default async function handler(req, res) {
       result.satellite.answered = false;
       result.satellite.status = 504;
       result.satellite.state = 'down';
+    }
+  }
+
+  // If NASA is down or degraded, check Tier 2 fallback: Esri World Imagery
+  if (result.satellite.state !== 'up') {
+    try {
+      const esriRes = await fetch(
+        'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/16/25652/15616',
+        { method: 'HEAD', signal: AbortSignal.timeout(3000) }
+      );
+      if (esriRes.ok) {
+        result.satellite.provider = 'Esri World Imagery';
+        result.satellite.keyConfigured = true;
+        result.satellite.answered = true;
+        result.satellite.status = 200;
+        result.satellite.state = 'up';
+      }
+    } catch {
+      // Fallback also failed
     }
   }
 

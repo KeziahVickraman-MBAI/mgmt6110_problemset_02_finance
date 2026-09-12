@@ -54,9 +54,12 @@ interface State {
   searchMatches: CompanyMatch[];
   searchState: 'idle' | 'loading' | 'empty' | 'rate-limited' | 'refused';
   satelliteState: 'idle' | 'loading' | 'loaded' | 'no-facility' | 'no-capture' | 'refused' | 'unreachable';
+  satelliteSource: 'landsat' | 'esri' | null;
   satelliteImageUrl: string | null;
+  satelliteTiles: string[] | null;
   satelliteCaptureDate: string | null;
   satelliteNoCaptureDate: string | null;
+  satelliteFallback: boolean;
   priceState: 'idle' | 'loading' | 'loaded' | 'empty' | 'rate-limited' | 'refused' | 'unreachable';
   priceData: PriceData | null;
   priceRateLimitedTime: string | null;
@@ -71,9 +74,12 @@ const state: State = {
   searchMatches: [],
   searchState: 'idle',
   satelliteState: 'idle',
+  satelliteSource: null,
   satelliteImageUrl: null,
+  satelliteTiles: null,
   satelliteCaptureDate: null,
   satelliteNoCaptureDate: null,
+  satelliteFallback: false,
   priceState: 'idle',
   priceData: null,
   priceRateLimitedTime: null,
@@ -373,23 +379,36 @@ function render() {
         <!-- PANEL B · SATELLITE (Left 2/3) -->
         <section id="panel-satellite" class="bg-white border border-[#e5e7eb] rounded-xl p-5 shadow-2xs flex flex-col justify-between satellite-panel-body">
           <div>
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-bold tracking-wider uppercase text-neutral-500">
-                Main Facility · Landsat Orbit
-              </h2>
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <h2 class="text-xs font-bold tracking-wider uppercase text-neutral-500">
+                  Main Facility · ${
+                    state.satelliteSource === 'esri'
+                      ? 'ESRI WORLD IMAGERY'
+                      : state.satelliteSource === 'landsat'
+                      ? 'LANDSAT'
+                      : 'LANDSAT'
+                  }
+                </h2>
+                ${
+                  state.satelliteFallback
+                    ? `<p class="text-xs text-amber-700 font-medium mt-0.5">Landsat unavailable — showing basemap imagery.</p>`
+                    : ''
+                }
+              </div>
               ${
-                state.satelliteCaptureDate
+                state.satelliteSource === 'landsat' && state.satelliteCaptureDate
                   ? `<span class="text-xs font-mono text-neutral-500">Capture: ${state.satelliteCaptureDate}</span>`
                   : ''
               }
             </div>
 
             <!-- Imagery Viewport with reserved height -->
-            <div class="relative w-full h-[280px] bg-neutral-100 rounded-lg overflow-hidden border border-[#e5e7eb] flex items-center justify-center text-center p-6">
+            <div class="relative w-full h-[280px] bg-neutral-100 rounded-lg overflow-hidden border border-[#e5e7eb] flex items-center justify-center text-center">
               ${
                 state.satelliteState === 'loading'
                   ? `
-                <div class="flex flex-col items-center gap-2">
+                <div class="flex flex-col items-center gap-2 p-6">
                   <div class="w-6 h-6 border-2 border-neutral-300 border-t-neutral-800 rounded-full animate-spin"></div>
                   <p class="text-sm text-neutral-600 font-medium">Fetching imagery…</p>
                 </div>
@@ -398,7 +417,28 @@ function render() {
               }
 
               ${
-                state.satelliteState === 'loaded' && state.satelliteImageUrl
+                state.satelliteState === 'loaded' && state.satelliteSource === 'esri' && state.satelliteTiles && state.satelliteTiles.length === 9
+                  ? `
+                <div class="grid grid-cols-3 w-[768px] h-[768px] shrink-0 pointer-events-none select-none" style="grid-template-columns: repeat(3, 256px); grid-template-rows: repeat(3, 256px);">
+                  ${state.satelliteTiles
+                    .map(
+                      (tileUrl, idx) => `
+                    <img
+                      src="${tileUrl}"
+                      alt="Esri World Imagery tile ${idx + 1}"
+                      class="w-[256px] h-[256px] block bg-neutral-200"
+                      loading="eager"
+                    />
+                  `
+                    )
+                    .join('')}
+                </div>
+              `
+                  : ''
+              }
+
+              ${
+                state.satelliteState === 'loaded' && state.satelliteSource === 'landsat' && state.satelliteImageUrl
                   ? `
                 <img
                   src="${state.satelliteImageUrl}"
@@ -412,7 +452,7 @@ function render() {
               ${
                 state.satelliteState === 'no-facility'
                   ? `
-                <div class="max-w-md">
+                <div class="max-w-md p-6">
                   <p class="text-sm text-neutral-600">
                     We don't have a mapped facility for this company. Add one to FACILITIES to see imagery.
                   </p>
@@ -422,9 +462,9 @@ function render() {
               }
 
               ${
-                state.satelliteState === 'no-capture'
+                state.satelliteState === 'no-capture' && state.satelliteSource === 'landsat'
                   ? `
-                <div class="max-w-md">
+                <div class="max-w-md p-6">
                   <p class="text-sm text-neutral-600">
                     No cloud-free capture near that date. Nearest available: ${state.satelliteNoCaptureDate || '[date]'}.
                   </p>
@@ -436,9 +476,9 @@ function render() {
               ${
                 state.satelliteState === 'refused'
                   ? `
-                <div class="max-w-md">
+                <div class="max-w-md p-6">
                   <p class="text-sm text-neutral-700 font-medium">
-                    NASA rejected our credential. No imagery on this screen is current.
+                    Provider rejected our credential. No imagery on this screen is current.
                   </p>
                 </div>
               `
@@ -448,17 +488,17 @@ function render() {
               ${
                 state.satelliteState === 'unreachable' || state.satelliteState === 'idle'
                   ? `
-                <div class="max-w-md">
+                <div class="max-w-md p-6">
                   <div class="w-8 h-8 mx-auto mb-2 text-neutral-400">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 4.243a9 9 0 01-12.728 0m0 0l2.829-2.829m-2.829 2.829L3 21m2.828-12.728a5 5 0 017.072 0l-2.828 2.828" />
                     </svg>
                   </div>
                   <p class="text-sm text-neutral-600 font-medium">
-                    Can't reach NASA's imagery service.
+                    Can't reach satellite imagery service.
                   </p>
                   <p class="text-xs text-neutral-400 mt-1.5">
-                    Service proxy unavailable from upstream NASA endpoint.
+                    Service proxy unavailable from upstream endpoints.
                   </p>
                 </div>
               `
@@ -466,20 +506,30 @@ function render() {
               }
             </div>
 
-            <!-- Capture Date beneath image -->
-            <div class="mt-2 text-xs text-neutral-500 font-mono">
-              ${
-                state.satelliteCaptureDate
-                  ? `Captured: ${state.satelliteCaptureDate}`
-                  : `<span class="text-neutral-400">No active tile captured</span>`
-              }
-            </div>
+            <!-- Capture Date beneath image (only for Landsat orbit) -->
+            ${
+              state.satelliteSource === 'landsat'
+                ? `
+              <div class="mt-2 text-xs text-neutral-500 font-mono">
+                ${
+                  state.satelliteCaptureDate
+                    ? `Captured: ${state.satelliteCaptureDate}`
+                    : `<span class="text-neutral-400">No active tile captured</span>`
+                }
+              </div>
+            `
+                : ''
+            }
           </div>
 
           <!-- Fixed Caption, ALWAYS VISIBLE -->
           <div class="mt-4 pt-3 border-t border-[#f3f4f6]">
             <p class="text-xs text-neutral-500 leading-relaxed">
-              Landsat 8, roughly 30m per pixel, 16-day revisit. Shows site context and long-run change. It cannot resolve vehicles and is not a demand or revenue signal.
+              ${
+                state.satelliteSource === 'esri'
+                  ? 'Esri World Imagery basemap. Capture date varies by location and is not published per tile — this shows what the site looks like, but not when. Not a demand or revenue signal.'
+                  : 'Landsat 8, roughly 30m per pixel, 16-day revisit. Shows site context and long-run change. It cannot resolve vehicles and is not a demand or revenue signal.'
+              }
             </p>
           </div>
         </section>
@@ -705,6 +755,8 @@ function render() {
           <span>•</span>
           <span>Imagery courtesy of NASA Earth Science / Landsat</span>
           <span>•</span>
+          <span>Basemap tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community</span>
+          <span>•</span>
           <span>Market data provided by Alpha Vantage</span>
         </div>
         <div class="text-neutral-400 text-center md:text-right">
@@ -821,15 +873,21 @@ function selectCompany(company: CompanyMatch) {
 async function fetchSatellite(company: CompanyMatch) {
   if (!company.facility || !company.facility.lat || !company.facility.lon) {
     state.satelliteState = 'no-facility';
+    state.satelliteSource = null;
     state.satelliteImageUrl = null;
+    state.satelliteTiles = null;
     state.satelliteCaptureDate = null;
+    state.satelliteFallback = false;
     render();
     return;
   }
 
   state.satelliteState = 'loading';
+  state.satelliteSource = null;
   state.satelliteImageUrl = null;
+  state.satelliteTiles = null;
   state.satelliteCaptureDate = null;
+  state.satelliteFallback = false;
   render();
 
   try {
@@ -843,34 +901,30 @@ async function fetchSatellite(company: CompanyMatch) {
       return;
     }
 
-    if (res.status === 504 || res.status === 502 || res.status === 503) {
+    if (res.status === 504 || res.status === 502 || res.status === 503 || !res.ok) {
       state.satelliteState = 'unreachable';
       render();
       return;
     }
 
-    if (res.status === 404) {
-      const errJson = await res.json().catch(() => ({}));
-      state.satelliteState = 'no-capture';
-      state.satelliteNoCaptureDate = errJson.nearestDate || '2024-06-01';
-      render();
-      return;
-    }
-
-    if (!res.ok) {
+    const data = await res.json();
+    if (data.source === 'landsat') {
+      state.satelliteSource = 'landsat';
+      state.satelliteImageUrl = data.url;
+      state.satelliteCaptureDate = data.captureDate || null;
+      state.satelliteFallback = false;
+      state.satelliteTiles = null;
+      state.satelliteState = 'loaded';
+    } else if (data.source === 'esri') {
+      state.satelliteSource = 'esri';
+      state.satelliteTiles = Array.isArray(data.tiles) ? data.tiles : [];
+      state.satelliteFallback = true;
+      state.satelliteCaptureDate = null;
+      state.satelliteImageUrl = null;
+      state.satelliteState = 'loaded';
+    } else {
       state.satelliteState = 'unreachable';
-      render();
-      return;
     }
-
-    // Capture date from header
-    const captureDate = res.headers.get('Capture-Date') || res.headers.get('X-Capture-Date') || '2024-06-01';
-    state.satelliteCaptureDate = captureDate;
-
-    // Get image blob and create object URL
-    const blob = await res.blob();
-    state.satelliteImageUrl = URL.createObjectURL(blob);
-    state.satelliteState = 'loaded';
   } catch {
     state.satelliteState = 'unreachable';
   }
