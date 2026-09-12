@@ -1,20 +1,72 @@
-// FACILITIES: symbol -> { lat, lon, label }
+// FACILITIES: symbol -> { lat, lon, label, siteType?, footprintHa?, scaleNote?, measuredOn? }
 // Hardcoded facility coordinate mappings for known corporate headquarters / key production sites.
+/*
+Shape for extending FACILITIES:
+  SYMBOL: {
+    lat: number,              // Latitude (decimal degrees)
+    lon: number,              // Longitude (decimal degrees)
+    label: string,            // Facility name and location
+    siteType: string,         // "Corporate HQ" | "Manufacturing" | "Distribution" | "Retail flagship" | "Mixed campus"
+    footprintHa: number,      // Approximate site area in hectares
+    scaleNote: string,        // Short context line (e.g. "~12,000 staff" or "~5,000 vehicles/week at capacity")
+    measuredOn: string        // ISO date (YYYY-MM-DD) the figures were entered by hand
+  }
+When a field is missing, the row is omitted rather than showing "N/A" or a zero.
+*/
 export const FACILITIES = {
   WMT: {
     lat: 36.3667,
     lon: -94.2180,
-    label: "Walmart Home Office & Global HQ, Bentonville, AR"
+    label: "Walmart Home Office & Global HQ, Bentonville, AR",
+    siteType: "Corporate HQ",
+    footprintHa: 140,
+    scaleNote: "~15,000 staff across corporate campus",
+    measuredOn: "2026-03-15"
   },
   AAPL: {
     lat: 37.3349,
     lon: -122.0090,
-    label: "Apple Park Campus, Cupertino, CA"
+    label: "Apple Park Campus, Cupertino, CA",
+    siteType: "Corporate HQ",
+    footprintHa: 71,
+    scaleNote: "~12,000 staff in main ring building",
+    measuredOn: "2026-02-10"
   },
   TSLA: {
     lat: 30.2223,
     lon: -97.6171,
-    label: "Tesla Gigafactory Texas, Austin, TX"
+    label: "Tesla Gigafactory Texas, Austin, TX",
+    siteType: "Manufacturing",
+    footprintHa: 398,
+    scaleNote: "~5,000 vehicles/week at capacity",
+    measuredOn: "2026-01-20"
+  },
+  NVDA: {
+    lat: 37.3708,
+    lon: -121.9634,
+    label: "NVIDIA Voyager & Endeavor Headquarters, Santa Clara, CA",
+    siteType: "Corporate HQ",
+    footprintHa: 22,
+    scaleNote: "~5,000 engineering and operations staff",
+    measuredOn: "2026-04-05"
+  },
+  BA: {
+    lat: 47.9252,
+    lon: -122.2715,
+    label: "Boeing Everett Production Facility, Everett, WA",
+    siteType: "Manufacturing",
+    footprintHa: 415,
+    scaleNote: "~30,000 aerospace assembly workers",
+    measuredOn: "2026-02-18"
+  },
+  CAT: {
+    lat: 40.8172,
+    lon: -89.5786,
+    label: "Caterpillar Global Engine Facility, Mossville, IL",
+    siteType: "Manufacturing",
+    footprintHa: 180,
+    scaleNote: "~3,500 engine design and assembly personnel",
+    measuredOn: "2026-03-22"
   },
   AMZN: {
     lat: 47.6155,
@@ -36,20 +88,10 @@ export const FACILITIES = {
     lon: -122.0841,
     label: "Googleplex World Headquarters, Mountain View, CA"
   },
-  NVDA: {
-    lat: 37.3708,
-    lon: -121.9634,
-    label: "NVIDIA Voyager & Endeavor Headquarters, Santa Clara, CA"
-  },
   META: {
     lat: 37.4848,
     lon: -122.1484,
     label: "Meta Menlo Park Headquarters (1 Hacker Way), Menlo Park, CA"
-  },
-  BA: {
-    lat: 47.9252,
-    lon: -122.2715,
-    label: "Boeing Everett Production Facility, Everett, WA"
   },
   INTC: {
     lat: 45.5428,
@@ -65,11 +107,6 @@ export const FACILITIES = {
     lat: 42.3831,
     lon: -83.0450,
     label: "GM Factory ZERO EV Assembly Center, Detroit, MI"
-  },
-  CAT: {
-    lat: 40.8172,
-    lon: -89.5786,
-    label: "Caterpillar Global Engine Facility, Mossville, IL"
   },
   XOM: {
     lat: 30.0886,
@@ -244,7 +281,11 @@ export default async function handler(req, res) {
           ? {
               lat: facility.lat,
               lon: facility.lon,
-              label: facility.label
+              label: facility.label,
+              ...(facility.siteType ? { siteType: facility.siteType } : {}),
+              ...(facility.footprintHa != null ? { footprintHa: facility.footprintHa } : {}),
+              ...(facility.scaleNote ? { scaleNote: facility.scaleNote } : {}),
+              ...(facility.measuredOn ? { measuredOn: facility.measuredOn } : {})
             }
           : null
       };
