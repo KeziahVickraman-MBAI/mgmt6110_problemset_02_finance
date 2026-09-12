@@ -105,6 +105,28 @@ const state: State = {
   health: null
 };
 
+// UI Expansion state (per-session, resets on lookup)
+interface ExpansionState {
+  news: boolean;
+  profile: boolean;
+  compareInvoked: boolean;
+}
+
+const expansionState: ExpansionState = {
+  news: false,
+  profile: false,
+  compareInvoked: false
+};
+
+// Tab title synchronizer
+function updateTabTitle(): void {
+  if (state.selectedCompany && state.selectedCompany.symbol) {
+    document.title = `Overberg · ${state.selectedCompany.symbol}`;
+  } else {
+    document.title = 'Overberg';
+  }
+}
+
 // Default seed company (Walmart - WMT)
 const DEFAULT_COMPANY: CompanyMatch = {
   symbol: 'WMT',
@@ -218,9 +240,15 @@ function generatePriceChartSvg(prices: PricePoint[]): string {
   `;
 }
 
-// Render 4-column site profile strip directly under imagery
-function renderProfileStrip(fac: Facility | FacilityEntry | null | undefined): string {
+// Render site profile strip directly under imagery (collapsed to single line, expands to four fields + provenance)
+function renderProfileStrip(fac: Facility | FacilityEntry | null | undefined, drawerId = 'profile-details-drawer'): string {
   if (!fac) return '';
+
+  const hasType = !!fac.siteType;
+  const hasFootprint = typeof fac.footprintHa === 'number' && !isNaN(fac.footprintHa);
+  const hasMore = !!(fac.scaleNote || fac.measuredOn);
+
+  if (!hasType && !hasFootprint && !hasMore) return '';
 
   const cols: string[] = [];
 
@@ -260,11 +288,42 @@ function renderProfileStrip(fac: Facility | FacilityEntry | null | undefined): s
     `);
   }
 
-  if (cols.length === 0) return '';
+  const isExpanded = expansionState.profile;
 
   return `
-    <div class="site-profile-strip">
-      ${cols.join('')}
+    <div class="site-profile-wrapper">
+      <div class="profile-strip-collapsed">
+        <div class="profile-collapsed-summary">
+          ${fac.siteType ? `<span class="profile-summary-type">${fac.siteType}</span>` : ''}
+          ${hasType && hasFootprint ? `<span class="profile-summary-sep">·</span>` : ''}
+          ${hasFootprint ? `<span class="profile-summary-ha">${fac.footprintHa} ha</span>` : ''}
+        </div>
+        ${
+          hasMore
+            ? `
+          <button
+            type="button"
+            class="quiet-toggle-btn toggle-profile-btn"
+            data-target="${drawerId}"
+            aria-expanded="${isExpanded ? 'true' : 'false'}"
+          >
+            ${isExpanded ? 'Hide details' : 'Site details'}
+          </button>
+        `
+            : ''
+        }
+      </div>
+      ${
+        hasMore
+          ? `
+        <div class="profile-details-drawer ${isExpanded ? 'is-expanded' : 'is-collapsed'}" id="${drawerId}">
+          <div class="site-profile-strip">
+            ${cols.join('')}
+          </div>
+        </div>
+      `
+          : ''
+      }
     </div>
   `;
 }
@@ -450,6 +509,8 @@ function renderCrossPanelSynthesis(): string {
 
 // Render the entire app UI
 function render() {
+  updateTabTitle();
+
   const root = document.getElementById('root');
   if (!root) return;
 
@@ -507,6 +568,9 @@ function render() {
 
       <!-- PANEL 0 · SEARCH (Pinned Top) -->
       <section id="panel-search" class="search-section">
+        <div class="wordmark-container">
+          <span class="product-wordmark">OVERBERG</span>
+        </div>
         <form id="search-form" class="search-form">
           <div class="relative flex-1">
             <input
@@ -609,7 +673,7 @@ function render() {
       ${renderCrossPanelSynthesis()}
 
       <!-- HERO · SATELLITE (Full Width) -->
-      <section id="panel-satellite" class="instrument-section satellite-panel-body">
+      <section id="panel-satellite" class="instrument-section satellite-panel-body ${state.satelliteState === 'loading' ? 'is-loading' : ''}">
         <div>
           <div class="panel-header-bar">
             <div>
@@ -629,38 +693,47 @@ function render() {
                 ${getStatusChip('price', 'Price')}
               </div>
 
-              <!-- Compare with... control -->
+              <!-- Compare with... control (invoked on demand) -->
               <div class="flex items-center gap-2">
-                <select
-                  id="compare-facility-select"
-                  aria-label="Compare with another company facility"
-                  class="compare-select"
-                >
-                  <option value="">Compare with…</option>
-                  ${Object.values(FACILITIES)
-                    .filter((f) => f.symbol !== (state.selectedCompany?.symbol || ''))
-                    .map(
-                      (f) => `
-                    <option value="${f.symbol}" ${state.compareSymbol === f.symbol ? 'selected' : ''}>
-                      ${f.symbol} · ${f.name}
-                    </option>
-                  `
-                    )
-                    .join('')}
-                </select>
                 ${
-                  state.compareSymbol
+                  !expansionState.compareInvoked && !state.compareSymbol
                     ? `
+                  <button
+                    type="button"
+                    id="open-compare-btn"
+                    class="quiet-toggle-btn"
+                    aria-expanded="false"
+                  >
+                    Compare with…
+                  </button>
+                `
+                    : `
+                  <select
+                    id="compare-facility-select"
+                    aria-label="Compare with another company facility"
+                    class="compare-select"
+                  >
+                    <option value="">Select company to compare…</option>
+                    ${Object.values(FACILITIES)
+                      .filter((f) => f.symbol !== (state.selectedCompany?.symbol || ''))
+                      .map(
+                        (f) => `
+                      <option value="${f.symbol}" ${state.compareSymbol === f.symbol ? 'selected' : ''}>
+                        ${f.symbol} · ${f.name}
+                      </option>
+                    `
+                      )
+                      .join('')}
+                  </select>
                   <button
                     type="button"
                     id="exit-compare-btn"
                     class="compare-exit-btn"
                     title="Exit compare mode"
                   >
-                    Exit
+                    ${state.compareSymbol ? 'Exit' : 'Cancel'}
                   </button>
                 `
-                    : ''
                 }
               </div>
             </div>
@@ -689,7 +762,7 @@ function render() {
                     <div class="hero-facility-label">${facilityLabel}</div>
                   </div>
                 </div>
-                ${renderProfileStrip(comp?.facility)}
+                ${renderProfileStrip(comp?.facility, 'profile-details-primary')}
               </div>
 
               <!-- Compared Company -->
@@ -706,7 +779,7 @@ function render() {
                     <div class="hero-facility-label">${FACILITIES[state.compareSymbol].label}</div>
                   </div>
                 </div>
-                ${renderProfileStrip(FACILITIES[state.compareSymbol])}
+                ${renderProfileStrip(FACILITIES[state.compareSymbol], 'profile-details-compare')}
               </div>
             </div>
 
@@ -721,6 +794,34 @@ function render() {
             `
                 : '';
             })()}
+          `
+              : state.satelliteState === 'no-facility' || state.satelliteState === 'refused' || state.satelliteState === 'unreachable'
+              ? `
+            <!-- COLLAPSED FAILED STATE: Shrunk to single line carrying existing sentence verbatim -->
+            <div class="satellite-collapsed-header">
+              <h1 class="satellite-company-name">${name}</h1>
+              <div class="hero-meta-row" style="color: var(--slate);">
+                <span class="hero-ticker" style="color: var(--ink);">${symbol}</span>
+                ${region && region !== '—' ? `<span>·</span><span>${region}</span>` : ''}
+                ${
+                  ninetyDayDiffStr
+                    ? `<span>·</span><span class="hero-price-tag ${ninetyDayIsPos ? 'hero-price-up' : 'hero-price-down'}">${ninetyDayDiffStr} 90d</span>`
+                    : ''
+                }
+              </div>
+              ${facilityLabel ? `<div class="hero-facility-label" style="color: var(--slate);">${facilityLabel}</div>` : ''}
+            </div>
+
+            ${
+              state.satelliteState === 'no-facility'
+                ? `<div class="panel-failed-line">We don't have a mapped facility for this company. Add one to FACILITIES to see imagery.</div>`
+                : state.satelliteState === 'refused'
+                ? `<div class="panel-failed-line text-down">Provider rejected our credential. No imagery on this screen is current.</div>`
+                : `<div class="panel-failed-line">Can't reach satellite imagery service. ${facilityLabel ? '' : 'Service proxy unavailable from upstream endpoints.'}</div>`
+            }
+
+            <!-- Profile Strip directly under collapsed line if facility data exists -->
+            ${renderProfileStrip(comp?.facility)}
           `
               : `
             <!-- SINGLE MODE: Hero with overlaid text on lower left -->
@@ -791,7 +892,7 @@ function render() {
       <div class="lower-sections-grid">
 
         <!-- PANEL C · PRICE -->
-        <section id="panel-price" class="instrument-section price-panel-body">
+        <section id="panel-price" class="instrument-section price-panel-body ${state.priceState === 'loading' ? 'is-loading' : ''}">
           <div>
             <div class="panel-header-bar">
               <h2 class="panel-heading">Share price, ninety-day close</h2>
@@ -809,33 +910,25 @@ function render() {
 
               if (state.priceState === 'empty') {
                 return `
-                  <div class="h-[240px] flex items-center justify-center text-center p-4">
-                    <p style="font-size: 0.85rem; color: var(--slate);">No price history for this symbol. It may be delisted or not covered.</p>
-                  </div>
+                  <div class="panel-failed-line">No price history for this symbol. It may be delisted or not covered.</div>
                 `;
               }
 
               if (state.priceState === 'refused') {
                 return `
-                  <div class="h-[240px] flex items-center justify-center text-center p-4">
-                    <p style="font-size: 0.85rem; color: var(--down); font-weight: 500;">The price provider rejected our credential.</p>
-                  </div>
+                  <div class="panel-failed-line text-down">The price provider rejected our credential.</div>
                 `;
               }
 
               if (state.priceState === 'unreachable') {
                 return `
-                  <div class="h-[240px] flex items-center justify-center text-center p-4">
-                    <p style="font-size: 0.85rem; color: var(--slate); font-weight: 500;">Can't reach the price provider.</p>
-                  </div>
+                  <div class="panel-failed-line">Can't reach the price provider.</div>
                 `;
               }
 
               if (state.priceState === 'rate-limited' && !state.priceData?.prices?.length) {
                 return `
-                  <div class="h-[240px] flex items-center justify-center text-center p-4">
-                    <p style="font-size: 0.85rem; color: var(--down); font-weight: 500;">Price data is rate-limited right now. Try again in a moment.</p>
-                  </div>
+                  <div class="panel-failed-line text-down">Price data is rate-limited right now. Try again in a moment.</div>
                 `;
               }
 
@@ -881,9 +974,7 @@ function render() {
               }
 
               return `
-                <div class="h-[240px] flex items-center justify-center text-center p-4">
-                  <p style="font-size: 0.85rem; color: var(--slate);">Enter a company ticker above to inspect 90-day closes.</p>
-                </div>
+                <div class="panel-failed-line">Enter a company ticker above to inspect 90-day closes.</div>
               `;
             })()}
           </div>
@@ -895,7 +986,7 @@ function render() {
         </section>
 
         <!-- PANEL D · NEWS -->
-        <section id="panel-news" class="instrument-section news-panel-body">
+        <section id="panel-news" class="instrument-section news-panel-body ${state.newsState === 'loading' ? 'is-loading' : ''}">
           <div class="panel-header-bar">
             <h2 class="panel-heading">Recent coverage</h2>
             <span class="panel-attribution">The Guardian · Summary Only Licence</span>
@@ -913,63 +1004,76 @@ function render() {
 
             if (state.newsState === 'empty') {
               return `
-                <div class="h-[200px] flex items-center justify-center text-center p-6">
-                  <p style="font-size: 0.85rem; color: var(--slate); max-width: 44ch;">
-                    No Guardian coverage of this company in the archive. That's not unusual for smaller listings.
-                  </p>
+                <div class="panel-failed-line">
+                  No Guardian coverage of this company in the archive. That's not unusual for smaller listings.
                 </div>
               `;
             }
 
             if (state.newsState === 'refused') {
               return `
-                <div class="h-[200px] flex items-center justify-center text-center p-6">
-                  <p style="font-size: 0.85rem; color: var(--down); font-weight: 500;">The Guardian rejected our credential.</p>
-                </div>
+                <div class="panel-failed-line text-down">The Guardian rejected our credential.</div>
               `;
             }
 
             if (state.newsState === 'unreachable') {
               return `
-                <div class="h-[200px] flex items-center justify-center text-center p-6">
-                  <p style="font-size: 0.85rem; color: var(--slate); font-weight: 500;">Can't reach the Guardian.</p>
-                </div>
+                <div class="panel-failed-line">Can't reach the Guardian.</div>
               `;
             }
 
             if (state.newsItems.length > 0) {
+              const renderArticle = (item: NewsItem) => `
+                <article class="news-editorial-row">
+                  <h3 class="news-headline">
+                    <a href="${item.webUrl}" target="_blank" rel="noopener noreferrer">
+                      ${item.headline}
+                    </a>
+                  </h3>
+                  <!-- Excerpt truncated strictly to 200 characters server-side -->
+                  <p class="news-excerpt">
+                    ${item.excerpt}
+                  </p>
+                  <div class="news-meta-line">
+                    <time datetime="${item.date}">${formatDate(item.date)}</time>
+                    <span>·</span>
+                    <span>${item.section}</span>
+                  </div>
+                </article>
+              `;
+
+              const firstTwo = state.newsItems.slice(0, 2);
+              const remaining = state.newsItems.slice(2);
+              const isExpanded = expansionState.news;
+
               return `
                 <div class="news-editorial-list">
-                  ${state.newsItems
-                    .map(
-                      (item) => `
-                    <article class="news-editorial-row">
-                      <h3 class="news-headline">
-                        <a href="${item.webUrl}" target="_blank" rel="noopener noreferrer">
-                          ${item.headline}
-                        </a>
-                      </h3>
-                      <!-- Excerpt truncated strictly to 200 characters server-side -->
-                      <p class="news-excerpt">
-                        ${item.excerpt}
-                      </p>
-                      <div class="news-meta-line">
-                        <time datetime="${item.date}">${formatDate(item.date)}</time>
-                        <span>·</span>
-                        <span>${item.section}</span>
-                      </div>
-                    </article>
+                  ${firstTwo.map(renderArticle).join('')}
+                  ${
+                    remaining.length > 0
+                      ? `
+                    <div id="news-extra-items" class="news-extra-container ${isExpanded ? 'is-expanded' : 'is-collapsed'}">
+                      ${remaining.map(renderArticle).join('')}
+                    </div>
+                    <div class="news-toggle-wrap">
+                      <button
+                        type="button"
+                        class="quiet-toggle-btn"
+                        id="toggle-news-btn"
+                        aria-expanded="${isExpanded ? 'true' : 'false'}"
+                      >
+                        ${isExpanded ? 'Show fewer' : `${remaining.length} more`}
+                      </button>
+                    </div>
                   `
-                    )
-                    .join('')}
+                      : ''
+                  }
                 </div>
               `;
             }
 
             return `
-              <div class="h-[200px] flex items-center justify-center text-center p-6">
-                <p style="font-size: 0.85rem; color: var(--slate);">Select a company to load recent journalistic coverage.</p>
-              </div>
+              <div class="panel-failed-line">Select a company to load recent journalistic coverage.</div>
             `;
           })()}
         </section>
@@ -979,6 +1083,8 @@ function render() {
       <!-- FOOTER -->
       <footer class="site-footer">
         <div class="footer-credits">
+          <span>Overberg is a coursework prototype. Not financial advice.</span>
+          <span>·</span>
           <span>
             <a href="https://www.theguardian.com" target="_blank" rel="noopener noreferrer">
               Powered by the Guardian
@@ -1018,6 +1124,17 @@ function attachEventListeners() {
     };
   }
 
+  // Open compare mode toggle
+  const openCompareBtn = document.getElementById('open-compare-btn');
+  if (openCompareBtn) {
+    openCompareBtn.onclick = () => {
+      expansionState.compareInvoked = true;
+      render();
+      const newSelect = document.getElementById('compare-facility-select') as HTMLSelectElement | null;
+      if (newSelect) newSelect.focus();
+    };
+  }
+
   // Compare facility selector
   const compareSelect = document.getElementById('compare-facility-select') as HTMLSelectElement | null;
   if (compareSelect) {
@@ -1035,9 +1152,60 @@ function attachEventListeners() {
   const exitBtn = document.getElementById('exit-compare-btn');
   if (exitBtn) {
     exitBtn.onclick = () => {
+      expansionState.compareInvoked = false;
       exitCompareMode();
     };
   }
+
+  // News expand / collapse toggle
+  const toggleNewsBtn = document.getElementById('toggle-news-btn');
+  if (toggleNewsBtn) {
+    toggleNewsBtn.onclick = () => {
+      expansionState.news = !expansionState.news;
+      const extraItems = document.getElementById('news-extra-items');
+      if (extraItems) {
+        if (expansionState.news) {
+          extraItems.classList.remove('is-collapsed');
+          extraItems.classList.add('is-expanded');
+          toggleNewsBtn.setAttribute('aria-expanded', 'true');
+          toggleNewsBtn.textContent = 'Show fewer';
+        } else {
+          extraItems.classList.remove('is-expanded');
+          extraItems.classList.add('is-collapsed');
+          toggleNewsBtn.setAttribute('aria-expanded', 'false');
+          const remainingCount = Math.max(0, state.newsItems.length - 2);
+          toggleNewsBtn.textContent = `${remainingCount} more`;
+        }
+      } else {
+        render();
+      }
+    };
+  }
+
+  // Profile details expand / collapse toggle
+  const profileBtns = document.querySelectorAll('.toggle-profile-btn');
+  profileBtns.forEach((btn) => {
+    (btn as HTMLElement).onclick = () => {
+      expansionState.profile = !expansionState.profile;
+      const targetId = btn.getAttribute('data-target') || 'profile-details-drawer';
+      const drawer = document.getElementById(targetId);
+      if (drawer) {
+        if (expansionState.profile) {
+          drawer.classList.remove('is-collapsed');
+          drawer.classList.add('is-expanded');
+          btn.setAttribute('aria-expanded', 'true');
+          btn.textContent = 'Hide details';
+        } else {
+          drawer.classList.remove('is-expanded');
+          drawer.classList.add('is-collapsed');
+          btn.setAttribute('aria-expanded', 'false');
+          btn.textContent = 'Site details';
+        }
+      } else {
+        render();
+      }
+    };
+  });
 
   // Pick list clicks
   const resultRows = document.querySelectorAll('.search-result-row');
@@ -1139,6 +1307,11 @@ async function performCompanySearch(query: string, autoSelectFirst = false) {
 
 // Select a company and update all panels
 function selectCompany(company: CompanyMatch) {
+  // Reset expansion toggles on new lookup (compact by default)
+  expansionState.news = false;
+  expansionState.profile = false;
+  expansionState.compareInvoked = false;
+
   // Merge facility with hand-entered FACILITIES entry if available
   const known = FACILITIES[company.symbol];
   const facility = known
@@ -1209,6 +1382,7 @@ async function selectCompareFacility(symbol: string) {
 
 // Exit compare mode
 function exitCompareMode() {
+  expansionState.compareInvoked = false;
   state.compareSymbol = null;
   state.compareState = 'idle';
   state.compareTiles = null;

@@ -1,6 +1,6 @@
 {
-  "name": "Company Research Dashboard",
-  "description": "First-pass company research dashboard with ninety-day price trends, recent Guardian coverage, and NASA Landsat satellite imagery.",
+  "name": "Overberg",
+  "description": "Company research dashboard with ninety-day price trends, recent Guardian coverage, and NASA Landsat satellite imagery.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
